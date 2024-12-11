@@ -76,3 +76,13 @@ main {
         padding-right: 1.5rem !important;
     }
 }
+
+.sidebar {
+    width: 250px;
+    transition: width 0.25s ease-in-out;
+    overflow: hidden;
+}
+
+.sidebar.collapsed {
+    width: 0;
+}
