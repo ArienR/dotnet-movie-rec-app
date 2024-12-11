@@ -1,12 +1,31 @@
-﻿@inherits LayoutComponentBase
-<div class="page">
-    <div class="sidebar">
-        <NavMenu/>
+﻿@using System.ComponentModel.DataAnnotations
+@inherits LayoutComponentBase
+<div class="page d-flex min-vh-100">
+    @* Sidebar *@
+    <div class="sidebar @(sidebarCollapsed ? "d-none" : "")">
+        <NavMenu />
     </div>
 
-    <main>
-        <article class="content px-4">
+    @* Main content *@
+    <main class="d-flex flex-column w-100">
+        @* Toggle button *@
+        <button class="btn btn-outline-primary position-absolute m-3" @onclick="ToggleSidebar">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        
+        @* Body *@
+        <article class="content px-4 d-flex flex-column justify-content-center align-items-center flex-fill">
             @Body
         </article>
     </main>
 </div>
+
+@code {
+    private bool sidebarCollapsed;
+
+    private void ToggleSidebar()
+    {
+        sidebarCollapsed = !sidebarCollapsed;
+    }
+
+}

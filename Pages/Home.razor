@@ -4,7 +4,7 @@
 
 <div class="flex flex-col justify-center items-center text-center min-h-screen">
     <h1 id="home-typewriter">@currentDisplayText</h1>
-    <input type="text" placeholder="Your Letterboxd username..." class="main-input text-center px-4 py-2 border-gray-300 rounded-pill">
+    <input type="text" placeholder="Your Letterboxd username..." class="main-input text-center px-4 py-2 rounded-pill">
 </div>
 
 
@@ -15,7 +15,7 @@
     // Speeds and timing (in milliseconds)
     private int typingSpeed = 100; // Lower => quicker typing 
     private int backSpeed = 50;  // Lower => quicker deletion
-    private int pauseBetween = 500;
+    private int pauseBetween = 500; 
 
     protected override async Task OnInitializedAsync()
     {
