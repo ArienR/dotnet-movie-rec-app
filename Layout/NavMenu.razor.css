@@ -6,40 +6,77 @@
 .navbar-brand {
     font-family: 'Syne', sans-serif;
     font-weight: 800;
-    font-size: 1.6rem;
+    font-size: 1.4rem;
     color: #14181C;
 }
 
 .nav-item {
     font-size: 0.9rem;
     padding-bottom: 0.5rem;
+    font-weight: 600;
+    text-underline-position: under;
+    position: relative;
 }
 
-    .nav-item:first-of-type {
-        padding-top: 1rem;
-    }
+.nav-item:first-of-type {
+    padding-top: 1rem;
+}
 
-    .nav-item:last-of-type {
-        padding-bottom: 1rem;
-    }
+.nav-item:last-of-type {
+    padding-bottom: 1rem;
+}
 
-    .nav-item ::deep a {
-        color: #d7d7d7;
-        border-radius: 4px;
-        height: 3rem;
-        display: flex;
-        align-items: center;
-        line-height: 3rem;
-    }
+.nav-item ::deep a {
+    color: #d7d7d7;
+    border-radius: 4px;
+    height: 3rem;
+    display: flex;
+    align-items: center;
+    /*line-height: 3rem;*/
+    text-decoration: none; /* Ensure no default underline */
+    position: relative;
+}
+
+.nav-item ::deep a .nav-text {
+    position: relative;
+    display: inline-block; /* ensures ::before and ::after align to text width */
+    padding-bottom: 2px;   /* small spacing to comfortably show underline below text */
+}
+
+/* Faint underline always visible under the text */
+.nav-item ::deep a .nav-text::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 120%;
+    height: 2px;
+    background: rgba(0, 0, 0, 0.4);
+}
+
+/* Dark underline hidden by default */
+.nav-item ::deep a .nav-text::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 0;
+    height: 2px;
+    background: #14181C;
+    transition: width 0.2s ease-in-out;
+}
 
 .nav-item ::deep a.active {
-    background-color: rgba(255,255,255,0.37);
     color: #14181C;
 }
 
 .nav-item ::deep a:hover {
-    background-color: rgba(255,255,255,0.1);
+    background-color: rgba(255,255,255,0.3);
     color: #14181C;
+}
+
+.nav-item ::deep a:hover .nav-text::after {
+    width: 120%;
 }
 
 @media (min-width: 641px) {

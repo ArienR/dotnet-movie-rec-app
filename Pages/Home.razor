@@ -9,12 +9,12 @@
 
 
 @code {
-    private string[] texts = new[] { "flickpick", "Enter your Letterboxd username" };
+    private string[] texts = new[] { "Enter your Letterboxd username...", "Then flickpick" };
     private string currentDisplayText = string.Empty;
 
     // Speeds and timing (in milliseconds)
-    private int typingSpeed = 100; // Lower => quicker typing 
-    private int backSpeed = 50;  // Lower => quicker deletion
+    private int typingSpeed = 75; // Lower => quicker typing 
+    private int backSpeed = 35;  // Lower => quicker deletion
     private int pauseBetween = 500; 
 
     protected override async Task OnInitializedAsync()

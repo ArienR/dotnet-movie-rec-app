@@ -130,5 +130,7 @@ code {
     border: none;
     color: #e6ddcb;
     background-color: rgba(0, 0, 0, 0.2);
-    width: 300px;
+    width: 400px;
+    height: 50px;
+    font-size: 1.15rem;
 }
