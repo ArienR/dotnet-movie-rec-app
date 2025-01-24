@@ -3,64 +3,13 @@
 <PageTitle>Home</PageTitle>
 
 <div class="flex flex-col justify-center items-center text-center min-h-screen">
-    <h1 id="home-typewriter">@currentDisplayText</h1>
+    <h1 id="home-typewriter">
+        <Typewriter Texts="welcomeTexts" TypingSpeed="75" BackSpeed="35" PauseBetween="500" />
+    </h1>
     <input type="text" placeholder="Your Letterboxd username..." class="main-input text-center px-4 py-2 rounded-pill">
 </div>
 
 
 @code {
-    private string[] texts = new[] { "Enter your Letterboxd username...", "Then flickpick." };
-    private string currentDisplayText = string.Empty;
-
-    // Speeds and timing (in milliseconds)
-    private int typingSpeed = 75; // Lower => quicker typing 
-    private int backSpeed = 35;  // Lower => quicker deletion
-    private int pauseBetween = 500; 
-
-    protected override async Task OnInitializedAsync()
-    {
-        // Start the typewriter effect when the component initializes
-        _ = RunTypewriterEffectAsync();
-    }
-
-    private async Task RunTypewriterEffectAsync()
-    {
-        while (true) // Cycle indefinitely
-        {
-            foreach (var phrase in texts)
-            {
-                // Type the phrase out
-                await TypePhraseAsync(phrase);
-
-                // Wait before deleting
-                await Task.Delay(pauseBetween);
-
-                // Delete the phrase
-                await DeletePhraseAsync(phrase.Length);
-
-                // Wait before moving to the next phrase
-                await Task.Delay(500);
-            }
-        }
-    }
-
-    private async Task TypePhraseAsync(string phrase)
-    {
-        for (int i = 0; i < phrase.Length; i++)
-        {
-            currentDisplayText = phrase.Substring(0, i + 1);
-            StateHasChanged();
-            await Task.Delay(typingSpeed);
-        }
-    }
-
-    private async Task DeletePhraseAsync(int length)
-    {
-        for (int i = length; i > 0; i--)
-        {
-            currentDisplayText = currentDisplayText.Substring(0, i - 1);
-            StateHasChanged();
-            await Task.Delay(backSpeed);
-        }
-    }
+    private string[] welcomeTexts = new[] { "Enter your Letterboxd username...", "Then flickpick." };
 }

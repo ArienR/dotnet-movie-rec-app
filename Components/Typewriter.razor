@@ -1,0 +1,56 @@
+﻿<span>@displayText</span>
+
+@code {
+    [Parameter]
+    public string[] Texts { get; set; } = Array.Empty<string>();
+
+    [Parameter]
+    public int TypingSpeed { get; set; } = 75;
+
+    [Parameter]
+    public int BackSpeed { get; set; } = 35;
+
+    [Parameter]
+    public int PauseBetween { get; set; } = 500;
+
+    private string displayText = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RunTypewriterEffectAsync();
+    }
+
+    private async Task RunTypewriterEffectAsync()
+    {
+        while (true)
+        {
+            foreach (var phrase in Texts)
+            {
+                await TypePhraseAsync(phrase);
+                await Task.Delay(PauseBetween);
+                await DeletePhraseAsync(phrase.Length);
+                await Task.Delay(PauseBetween);
+            }
+        }
+    }
+
+    private async Task TypePhraseAsync(string phrase)
+    {
+        for (int i = 0; i < phrase.Length; i++)
+        {
+            displayText = phrase.Substring(0, i + 1); // Add one character at a time
+            StateHasChanged(); // Notify Blazor to update the UI
+            await Task.Delay(TypingSpeed); // Pause for the typing speed
+        }
+    }
+
+    private async Task DeletePhraseAsync(int length)
+    {
+        for (int i = length; i > 0; i--)
+        {
+            displayText = displayText.Substring(0, i - 1); // Remove one character at a time
+            StateHasChanged(); // Notify Blazor to update the UI
+            await Task.Delay(BackSpeed); // Pause for the deletion speed
+        }
+    }
+}
