@@ -188,13 +188,13 @@ code {
     font-weight: bold;
     outline: none;
     border: none;
-    background-color: #e6ddcb;
-    color: #14181C;
+    color: #e6ddcb;
+    background-color: rgba(0, 0, 0, 0.5);
     transition: ease-in-out 0.1s;
     width: 250px;
 }
 
 .create-account-button:hover {
-    color: #e6ddcb;
-    background-color: rgba(0, 0, 0, 0.2);
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
 }
