@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using MovieRecApp.Models;
+using MovieRecApp.Client.Models;
 
-namespace MovieRecApp.Data;
+namespace MovieRecApp.Client.Data;
 
 public class AppDbContext : DbContext
 {

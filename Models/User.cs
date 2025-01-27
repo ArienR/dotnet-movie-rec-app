@@ -1,4 +1,4 @@
-﻿namespace MovieRecApp.Models;
+﻿namespace MovieRecApp.Client.Models;
 
 public class User
 {

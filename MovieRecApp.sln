@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MovieRecApp", "MovieRecApp.csproj", "{E2C8396E-9926-4EA6-AFA6-03A2F61EB0E1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MovieRecApp.Client", "MovieRecApp.Client.csproj", "{E2C8396E-9926-4EA6-AFA6-03A2F61EB0E1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
