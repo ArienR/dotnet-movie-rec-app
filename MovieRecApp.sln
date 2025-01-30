@@ -2,7 +2,9 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MovieRecApp.Client", "MovieRecApp.Client\MovieRecApp.Client.csproj", "{E2C8396E-9926-4EA6-AFA6-03A2F61EB0E1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MovieRecApp.Server", "MovieRecApp.Server\MovieRecApp.Server\MovieRecApp.Server.csproj", "{F5A1B391-35DB-4D2E-BB08-BF148500734A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MovieRecApp.Shared", "MovieRecApp.Shared\MovieRecApp.Shared\MovieRecApp.Shared.csproj", "{3DA5EE4C-5E65-401C-99A4-DDA0C0050D24}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MovieRecApp.Server", "MovieRecApp.Server\MovieRecApp.Server.csproj", "{6CCF4F04-B385-44C2-A521-F078C0BD4035}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -14,9 +16,13 @@ Global
 		{E2C8396E-9926-4EA6-AFA6-03A2F61EB0E1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E2C8396E-9926-4EA6-AFA6-03A2F61EB0E1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E2C8396E-9926-4EA6-AFA6-03A2F61EB0E1}.Release|Any CPU.Build.0 = Release|Any CPU
-		{F5A1B391-35DB-4D2E-BB08-BF148500734A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{F5A1B391-35DB-4D2E-BB08-BF148500734A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{F5A1B391-35DB-4D2E-BB08-BF148500734A}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{F5A1B391-35DB-4D2E-BB08-BF148500734A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3DA5EE4C-5E65-401C-99A4-DDA0C0050D24}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3DA5EE4C-5E65-401C-99A4-DDA0C0050D24}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3DA5EE4C-5E65-401C-99A4-DDA0C0050D24}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3DA5EE4C-5E65-401C-99A4-DDA0C0050D24}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6CCF4F04-B385-44C2-A521-F078C0BD4035}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6CCF4F04-B385-44C2-A521-F078C0BD4035}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6CCF4F04-B385-44C2-A521-F078C0BD4035}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6CCF4F04-B385-44C2-A521-F078C0BD4035}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

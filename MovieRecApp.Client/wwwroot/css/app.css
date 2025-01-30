@@ -198,3 +198,8 @@ code {
     text-decoration: underline;
     text-decoration-thickness: 2px;
 }
+
+.password-input {
+    text-security: disc;
+    -webkit-text-security: disc;
+}
