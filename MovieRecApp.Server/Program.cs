@@ -15,8 +15,8 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 // Configure ASP.NET Core Identity
 builder.Services.AddIdentity<IdentityUser, IdentityRole>()
-    .AddEntityFrameworkStores<ApplicationDbContext>() // Use SQLite database
-    .AddDefaultTokenProviders();                      // Enable token-based features (password recovery etc.)
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddDefaultTokenProviders();
 
 // Configure JWT Authentication
 builder.Services.AddAuthentication(options =>
@@ -25,6 +25,7 @@ builder.Services.AddAuthentication(options =>
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 }).AddJwtBearer(options =>
 {
+    var key = Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]);
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true, // Ensures the token was issued by a trusted server
@@ -33,15 +34,14 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true, // Validates the signing key
         ValidIssuer = builder.Configuration["Jwt:Issuer"], // Matches the token's issuer
         ValidAudience = builder.Configuration["Jwt:Audience"], // Matches the token's audience
-        IssuerSigningKey = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"])) // The secret key
+        IssuerSigningKey = new SymmetricSecurityKey(key) // The secret key
     };
 });
 
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();           // Add Swagger
+builder.Services.AddSwaggerGen();
 
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
