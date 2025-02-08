@@ -4,6 +4,10 @@ namespace MovieRecApp.Server.Controllers;
 
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 using Models;
 
 [Route("api/[controller]")]
@@ -11,13 +15,23 @@ using Models;
 public class AuthController : ControllerBase
 {
     private readonly UserManager<IdentityUser> _userManager;
+    private readonly IConfiguration _configuration;
 
-    public AuthController(UserManager<IdentityUser> userManager)
+    public AuthController(UserManager<IdentityUser> userManager, IConfiguration configuration)
     {
         _userManager = userManager; // On init inject userManager
+        _configuration = configuration; // On init inject appsettings.json
     }
     
     // POST: /api/auth/register
+    /// <summary>
+    /// Registers a new user with the given credentials.
+    /// </summary>
+    /// <param name="registerRequest">The request object containing the credentials</param>
+    /// <returns>
+    /// - **201 Created** on successful creation.
+    /// - **400 Bad Request** on invalid request, email already in use, or creation fails.
+    /// </returns>
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest registerRequest)
     {
@@ -48,5 +62,40 @@ public class AuthController : ControllerBase
         }
 
         return Created("", new { message = "User created successfully." });
+    }
+    
+    // POST: /api/auth/login
+    /// <summary>
+    /// Authenticates a users request to login and returns a WJT token.
+    /// </summary>
+    /// <param name="loginRequest">User login request containing email (or username) and password</param>
+    /// <returns>JWT if login request is successful.</returns>
+    [HttpPost("login")]
+    public async Task<IActionResult> Login([FromBody] LoginRequest loginRequest)
+    {
+        if (ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var user = await _userManager.FindByEmailAsync(loginRequest.EmailorUsername) ??
+                   await _userManager.FindByNameAsync(loginRequest.EmailorUsername);
+        if (user == null)
+        {
+            // No user found, return 401 Unauthorized
+            return Unauthorized(new { message = "Email or password is incorrect." });
+        }
+
+        var isPasswordValid = await _userManager.CheckPasswordAsync(user, loginRequest.Password);
+        if (!isPasswordValid)
+        {
+            // Password is incorrect, return 401 Unauthorized
+            return Unauthorized(new { message = "Email or password is incorrect." });
+        }
+
+        var token = GenerateJwtToken(user);
+
+        // Passed all checks so return 
+        return Ok(new { token });
     }
 }
