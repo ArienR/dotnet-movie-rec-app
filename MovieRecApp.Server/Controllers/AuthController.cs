@@ -1,6 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity.Data;
-
-namespace MovieRecApp.Server.Controllers;
+﻿namespace MovieRecApp.Server.Controllers;
 
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -66,14 +64,14 @@ public class AuthController : ControllerBase
     
     // POST: /api/auth/login
     /// <summary>
-    /// Authenticates a users request to login and returns a WJT token.
+    /// Authenticates a users request to log in and returns a JWT token.
     /// </summary>
     /// <param name="loginRequest">User login request containing email (or username) and password</param>
     /// <returns>JWT if login request is successful.</returns>
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest loginRequest)
     {
-        if (ModelState.IsValid)
+        if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
@@ -97,5 +95,43 @@ public class AuthController : ControllerBase
 
         // Passed all checks so return 
         return Ok(new { token });
+    }
+
+    /// <summary>
+    /// Generates a JWT token given the authenticated users log in credentials.
+    /// </summary>
+    /// <param name="user">An ASP.NET IdentityUser object</param>
+    /// <returns>A JWT token given the users claims.</returns>
+    /// <exception cref="InvalidOperationException"></exception>
+    private string GenerateJwtToken(IdentityUser user)
+    {
+        // Assure all JWT configurations in appsettings.json are valid
+        var keyString = _configuration["JWT:Key"] 
+                  ?? throw new InvalidOperationException("JWT:Key is missing in configuration.");
+        var expireMinutes = _configuration["JWT:ExpireMinutes"] 
+                            ?? throw new InvalidOperationException("JWT:ExpireMinutes is missing in configuration.");
+        
+        var claims = new[]
+        {
+            new Claim(JwtRegisteredClaimNames.Sub, user.UserName
+                                                   ?? throw new InvalidOperationException("UserName is null.")),
+            new Claim(JwtRegisteredClaimNames.Email, user.Email
+                                                     ?? throw new InvalidOperationException("Email is null.")),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+        };
+        
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(keyString));
+        
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var token = new JwtSecurityToken(
+            issuer: _configuration["JWT:Issuer"],
+            audience: _configuration["JWT:Audience"],
+            claims: claims,
+            expires: DateTime.Now.AddMinutes(double.Parse(expireMinutes)),
+            signingCredentials: creds
+        );
+        
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }
