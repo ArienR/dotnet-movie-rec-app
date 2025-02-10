@@ -39,11 +39,18 @@ public class AuthController : ControllerBase
             return BadRequest(ModelState);
         }
         
-        // Check if user already exists
-        var existingUser = await _userManager.FindByEmailAsync(registerRequest.Email);
-        if (existingUser != null)
+        // Check if email already exists
+        var existingEmail = await _userManager.FindByEmailAsync(registerRequest.Email);
+        if (existingEmail != null)
         {
             return BadRequest(new { message = "Email is already in use." });
+        }
+        
+        // Check if username already exists
+        var existingUsername = await _userManager.FindByNameAsync(registerRequest.UserName);
+        if (existingUsername != null)
+        {
+            return BadRequest(new { message = "Username is already in use." });
         }
         
         // Create a new user
@@ -113,10 +120,9 @@ public class AuthController : ControllerBase
         
         var claims = new[]
         {
-            new Claim(JwtRegisteredClaimNames.Sub, user.UserName
-                                                   ?? throw new InvalidOperationException("UserName is null.")),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email
-                                                     ?? throw new InvalidOperationException("Email is null.")),
+            new Claim(JwtRegisteredClaimNames.Sub, user.Id),
+            new Claim(ClaimTypes.Name, user.UserName ?? throw new InvalidOperationException("UserName is null.")), // Store username explicitly
+            new Claim(JwtRegisteredClaimNames.Email, user.Email ?? throw new InvalidOperationException("Email is null.")),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
         
