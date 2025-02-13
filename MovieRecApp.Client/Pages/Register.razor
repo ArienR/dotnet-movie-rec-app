@@ -1,20 +1,36 @@
 ﻿@page "/Register"
+@using Shared.Models
+@inject HttpClient Http
+@inject NavigationManager Navigation
 
 <PageTitle>Register</PageTitle>
 
 <div class="flex flex-col justify-center items-center text-center min-h-screen">
     <h1 style="color: #e6ddcb;">Sign Up</h1>
     <div class="login-inputs-container gap-3 m-5">
-        <input type="text" placeholder="Username" class="login-input text-center px-4 py-2 rounded-pill">
-        <input type="text" placeholder="Email" class="login-input text-center px-4 py-2 rounded-pill">
-        <input type="password" placeholder="Password" class="login-input password-input text-center px-4 py-2 rounded-pill">
-        <input type="password" placeholder="Confirm Password" class="login-input password-input text-center px-4 py-2 rounded-pill">
+        <input type="text" placeholder="Username" class="login-input text-center px-4 py-2 rounded-pill"
+               @bind="_registerRequest.UserName">
+        <input type="text" placeholder="Email" class="login-input text-center px-4 py-2 rounded-pill"
+               @bind="_registerRequest.Email">
+        <input type="password" placeholder="Password" class="login-input password-input text-center px-4 py-2 rounded-pill"
+               @bind="_registerRequest.Password">
+        <input type="password" placeholder="Confirm Password" class="login-input password-input text-center px-4 py-2 rounded-pill"
+               @bind="_registerRequest.ConfirmPassword">
     </div>
     <div class="login-buttons-container">
-        <button class="login-button text-center px-4 py-2 rounded-pill">Register</button>
+        <button class="login-button text-center px-4 py-2 rounded-pill" @onclick="HandleRegister">Register</button>
     </div>
 </div>
 
 @code {
-    
+    private RegisterRequest _registerRequest = new();
+
+    private async Task HandleRegister()
+    {
+        var response = await Http.PostAsJsonAsync("api/auth/register", _registerRequest);
+        if (response.IsSuccessStatusCode)
+        {
+            Navigation.NavigateTo("/Login");
+        }
+    }
 }

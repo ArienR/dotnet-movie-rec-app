@@ -8,6 +8,7 @@
 
     <ItemGroup>
         <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+        <PackageReference Include="Blazored.LocalStorage" Version="4.5.0" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="9.0.0" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="9.0.0" PrivateAssets="all" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.1">
@@ -28,6 +29,10 @@
       <_ContentIncludedByDefault Remove="MovieRecApp.Server\obj\project.assets.json" />
       <_ContentIncludedByDefault Remove="MovieRecApp.Server\obj\project.packagespec.json" />
       <_ContentIncludedByDefault Remove="MovieRecApp.Server\Properties\launchSettings.json" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\MovieRecApp.Shared\MovieRecApp.Shared.csproj" />
     </ItemGroup>
 
 </Project>

@@ -1,4 +1,6 @@
-﻿namespace MovieRecApp.Server.Controllers;
+﻿using Microsoft.AspNetCore.Cors;
+
+namespace MovieRecApp.Server.Controllers;
 
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -6,10 +8,11 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Models;
+using Shared.Models;
 
 [Route("api/[controller]")]
 [ApiController]
+[EnableCors("AllowBlazorClient")]
 public class AuthController : ControllerBase
 {
     private readonly UserManager<IdentityUser> _userManager;
@@ -83,8 +86,8 @@ public class AuthController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var user = await _userManager.FindByEmailAsync(loginRequest.EmailorUsername) ??
-                   await _userManager.FindByNameAsync(loginRequest.EmailorUsername);
+        var user = await _userManager.FindByEmailAsync(loginRequest.EmailOrUsername) ??
+                   await _userManager.FindByNameAsync(loginRequest.EmailOrUsername);
         if (user == null)
         {
             // No user found, return 401 Unauthorized
