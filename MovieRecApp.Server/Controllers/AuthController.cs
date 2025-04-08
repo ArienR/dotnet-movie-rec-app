@@ -1,7 +1,10 @@
-﻿using Microsoft.AspNetCore.Cors;
+﻿using System.Xml.Serialization;
 
 namespace MovieRecApp.Server.Controllers;
 
+using Microsoft.AspNetCore.Cors;
+using Interfaces;
+using Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
@@ -17,11 +20,13 @@ public class AuthController : ControllerBase
 {
     private readonly UserManager<IdentityUser> _userManager;
     private readonly IConfiguration _configuration;
+    private readonly IJwtService _jwtService;
 
-    public AuthController(UserManager<IdentityUser> userManager, IConfiguration configuration)
+    public AuthController(UserManager<IdentityUser> userManager, IConfiguration configuration, IJwtService jwtService)
     {
         _userManager = userManager; // On init inject userManager
         _configuration = configuration; // On init inject appsettings.json
+        _jwtService = jwtService;
     }
     
     // POST: /api/auth/register
@@ -38,23 +43,20 @@ public class AuthController : ControllerBase
     {
         // Validate input
         if (!ModelState.IsValid)
-        {
             return BadRequest(ModelState);
-        }
+        
+        if (registerRequest.Password != registerRequest.ConfirmPassword)
+            return BadRequest(new { message = "Passwords do not match" });
         
         // Check if email already exists
         var existingEmail = await _userManager.FindByEmailAsync(registerRequest.Email);
         if (existingEmail != null)
-        {
-            return BadRequest(new { message = "Email is already in use." });
-        }
+            return Conflict(new { message = "Email is already in use." });
         
         // Check if username already exists
         var existingUsername = await _userManager.FindByNameAsync(registerRequest.UserName);
         if (existingUsername != null)
-        {
-            return BadRequest(new { message = "Username is already in use." });
-        }
+            return Conflict(new { message = "Username is already in use." });
         
         // Create a new user
         var user = new IdentityUser
@@ -65,9 +67,7 @@ public class AuthController : ControllerBase
         
         var result = await _userManager.CreateAsync(user, registerRequest.Password);
         if (!result.Succeeded)
-        {
             return BadRequest(result.Errors);
-        }
 
         return Created("", new { message = "User created successfully." });
     }
@@ -82,65 +82,22 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Login([FromBody] LoginRequest loginRequest)
     {
         if (!ModelState.IsValid)
-        {
             return BadRequest(ModelState);
-        }
 
         var user = await _userManager.FindByEmailAsync(loginRequest.EmailOrUsername) ??
                    await _userManager.FindByNameAsync(loginRequest.EmailOrUsername);
         if (user == null)
-        {
             // No user found, return 401 Unauthorized
             return Unauthorized(new { message = "Email or password is incorrect." });
-        }
 
         var isPasswordValid = await _userManager.CheckPasswordAsync(user, loginRequest.Password);
         if (!isPasswordValid)
-        {
             // Password is incorrect, return 401 Unauthorized
             return Unauthorized(new { message = "Email or password is incorrect." });
-        }
 
-        var token = GenerateJwtToken(user);
+        var token = _jwtService.GenerateToken(user);
 
         // Passed all checks so return 
         return Ok(new { token });
-    }
-
-    /// <summary>
-    /// Generates a JWT token given the authenticated users log in credentials.
-    /// </summary>
-    /// <param name="user">An ASP.NET IdentityUser object</param>
-    /// <returns>A JWT token given the users claims.</returns>
-    /// <exception cref="InvalidOperationException"></exception>
-    private string GenerateJwtToken(IdentityUser user)
-    {
-        // Assure all JWT configurations in appsettings.json are valid
-        var keyString = _configuration["JWT:Key"] 
-                  ?? throw new InvalidOperationException("JWT:Key is missing in configuration.");
-        var expireMinutes = _configuration["JWT:ExpireMinutes"] 
-                            ?? throw new InvalidOperationException("JWT:ExpireMinutes is missing in configuration.");
-        
-        var claims = new[]
-        {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id),
-            new Claim(ClaimTypes.Name, user.UserName ?? throw new InvalidOperationException("UserName is null.")), // Store username explicitly
-            new Claim(JwtRegisteredClaimNames.Email, user.Email ?? throw new InvalidOperationException("Email is null.")),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-        };
-        
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(keyString));
-        
-        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-        var token = new JwtSecurityToken(
-            issuer: _configuration["JWT:Issuer"],
-            audience: _configuration["JWT:Audience"],
-            claims: claims,
-            expires: DateTime.Now.AddMinutes(double.Parse(expireMinutes)),
-            signingCredentials: creds
-        );
-        
-        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }
