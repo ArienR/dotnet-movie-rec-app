@@ -20,10 +20,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="Services\" />
-    </ItemGroup>
-
-    <ItemGroup>
       <_ContentIncludedByDefault Remove="MovieRecApp.Server\appsettings.Development.json" />
       <_ContentIncludedByDefault Remove="MovieRecApp.Server\appsettings.json" />
       <_ContentIncludedByDefault Remove="MovieRecApp.Server\obj\MovieRecApp.Server.csproj.nuget.dgspec.json" />
@@ -40,6 +36,10 @@
       <Content Include="..\.dockerignore">
         <Link>.dockerignore</Link>
       </Content>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Services\" />
     </ItemGroup>
 
 </Project>
