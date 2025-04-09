@@ -1,8 +1,10 @@
 ﻿using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using MovieRecApp.IntegrationTests.TestHelpers;
+using MovieRecApp.Server.DTOs;
 using MovieRecApp.Shared.Models;
 using Xunit.Abstractions;
 
@@ -42,7 +44,7 @@ public class AuthTests : IClassFixture<CustomWebApplicationFactory>
     }
     
     [Fact]
-    public async Task Login_ReturnsToken_WhenCredentialsAreValid()
+    public async Task Login_CredentialsAreValid_ReturnsToken()
     {
         // Arrange: Register user
         var registerPayload = new RegisterRequest
@@ -70,7 +72,7 @@ public class AuthTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task Login_ReturnsUnauthorized_WhenCredentialsAreInvalid()
+    public async Task Login_CredentialsAreInvalid_ReturnsUnauthorizedAndNoToken()
     {
         var loginPayload = new LoginRequest
         {
@@ -81,10 +83,13 @@ public class AuthTests : IClassFixture<CustomWebApplicationFactory>
         var response = await _client.PostAsJsonAsync("/api/auth/login", loginPayload);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        
+        var content = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(content.TryGetProperty("token", out _));
     }
 
     [Fact]
-    public async Task Login_ReturnsBadRequest_WhenFieldsAreMissing()
+    public async Task Login_FieldsAreMissing_ReturnsBadRequest()
     {
         var loginPayload = new LoginRequest()
         {
@@ -111,7 +116,7 @@ public class AuthTests : IClassFixture<CustomWebApplicationFactory>
         // First registration (should succeed)
         var firstResponse = await _client.PostAsJsonAsync("/api/auth/register", registerPayload);
 
-        // Second registration with same username
+        // Second registration with same payload
         var secondResponse = await _client.PostAsJsonAsync("/api/auth/register", registerPayload);
 
         Assert.Equal(HttpStatusCode.Created, firstResponse.StatusCode);
@@ -157,6 +162,72 @@ public class AuthTests : IClassFixture<CustomWebApplicationFactory>
         var response = await _client.GetAsync("/api/users/unknownuser12345");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetUserProfile_AuthenticatedUser_SetsLoggedInUserTrue()
+    {
+        var registerPayload = new RegisterRequest
+        {
+            UserName = "profileuser",
+            Email = "profile@example.com",
+            Password = "Test123!",
+            ConfirmPassword = "Test123!"
+        };
+
+        var registerResponse = await _client.PostAsJsonAsync("/api/auth/register", registerPayload);
+        registerResponse.EnsureSuccessStatusCode();
+
+        var loginPayload = new LoginRequest
+        {
+            EmailOrUsername = "profileuser",
+            Password = "Test123!"
+        };
+
+        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", loginPayload);
+        loginResponse.EnsureSuccessStatusCode();
+
+        var loginContent = await loginResponse.Content.ReadFromJsonAsync<TokenResponse>();
+        var token = loginContent?.Token;
+        Assert.False(string.IsNullOrEmpty(token), "Token was null or empty");
+
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/users/profileuser");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await _client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        var userProfile = await response.Content.ReadFromJsonAsync<UserDto>();
+
+        Assert.Equal("profileuser", userProfile?.UserName);
+        Assert.Equal("profile@example.com", userProfile?.Email);
+        Assert.True(userProfile?.IsCurrentUser, "Expected IsCurrentUser to be true for authenticated user fetching their own profile.");
+    }
+    
+    [Fact]
+    public async Task GetUserProfile_AuthenticatedUser_SetsLoggedInUserFalse()
+    {
+        var registerPayload = new RegisterRequest
+        {
+            UserName = "profileuser",
+            Email = "profile@example.com",
+            Password = "Test123!",
+            ConfirmPassword = "Test123!"
+        };
+
+        var registerResponse = await _client.PostAsJsonAsync("/api/auth/register", registerPayload);
+        registerResponse.EnsureSuccessStatusCode();
+        
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/users/profileuser");
+
+        var response = await _client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        var userProfile = await response.Content.ReadFromJsonAsync<UserDto>();
+
+        Assert.Equal("profileuser", userProfile?.UserName);
+        Assert.Equal("profile@example.com", userProfile?.Email);
+        Assert.False(userProfile?.IsCurrentUser, "Expected IsCurrentUser to be true for authenticated user fetching their own profile.");
     }
 
     [Fact]
@@ -236,6 +307,22 @@ public class AuthTests : IClassFixture<CustomWebApplicationFactory>
             UserName = "bademailuser",
             Password = "Test123!",
             ConfirmPassword = "Test123!"
+        };
+
+        var response = await _client.PostAsJsonAsync("/api/auth/register", request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+    
+    [Fact]
+    public async Task Register_InvalidPassword_ReturnsBadRequest()
+    {
+        var request = new RegisterRequest
+        {
+            Email = "valid@example.com",
+            UserName = "badpassworduser",
+            Password = "weakpassword",
+            ConfirmPassword = "weakpassword"
         };
 
         var response = await _client.PostAsJsonAsync("/api/auth/register", request);

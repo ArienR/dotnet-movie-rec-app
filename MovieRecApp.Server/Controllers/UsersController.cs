@@ -1,9 +1,8 @@
-﻿namespace MovieRecApp.Server.Controllers;
-
-using Interfaces;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
-using System.Threading.Tasks;
+using MovieRecApp.Server.Interfaces;
+
+namespace MovieRecApp.Server.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]

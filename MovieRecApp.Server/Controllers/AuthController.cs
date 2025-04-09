@@ -1,19 +1,12 @@
-﻿using System.Xml.Serialization;
+﻿using Microsoft.AspNetCore.Cors;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using MovieRecApp.Server.Interfaces;
+using MovieRecApp.Shared.Models;
 
 namespace MovieRecApp.Server.Controllers;
 
-using Microsoft.AspNetCore.Cors;
-using Interfaces;
-using Services;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
-using Shared.Models;
-
-[Route("api/[controller]")]
+[Route("api/auth")]
 [ApiController]
 [EnableCors("AllowBlazorClient")]
 public class AuthController : ControllerBase
