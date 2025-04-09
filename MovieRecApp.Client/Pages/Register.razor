@@ -23,14 +23,12 @@
 </div>
 
 @code {
-    private RegisterRequest _registerRequest = new();
+    private readonly RegisterRequest _registerRequest = new();
 
     private async Task HandleRegister()
     {
         var response = await Http.PostAsJsonAsync("api/auth/register", _registerRequest);
         if (response.IsSuccessStatusCode)
-        {
-            Navigation.NavigateTo("/Login");
-        }
+            Navigation.NavigateTo("/login");
     }
 }
