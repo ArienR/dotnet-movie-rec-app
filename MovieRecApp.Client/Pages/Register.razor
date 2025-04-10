@@ -1,11 +1,11 @@
-﻿@page "/register"
-@using MovieRecApp.Client.Utils
-@using Shared.Models
-@inject HttpClient Http
-@inject NavigationManager Navigation
-
-<PageTitle>Register</PageTitle>
-
+﻿@* @page "/register" *@
+@* @using MovieRecApp.Client.Utils *@
+@* @using Shared.Models *@
+@* @inject HttpClient Http *@
+@* @inject NavigationManager Navigation *@
+@* *@
+@* <PageTitle>Register</PageTitle> *@
+@* *@
 @* <div class="flex flex-col justify-center items-center text-center min-h-screen"> *@
 @*     <h1 style="color: #e6ddcb;">Sign Up</h1> *@
 @*     <div class="login-inputs-container gap-3 m-5"> *@
@@ -19,7 +19,7 @@
 @*                @bind="_registerRequest.ConfirmPassword"> *@
 @*     </div> *@
 @*     <div class="login-buttons-container"> *@
-@*         <button class="login-button text-center px-4 py-2 rounded`-pill" @onclick="HandleRegister">Register</button> *@
+@*         <button class="login-button text-center px-4 py-2 rounded-pill" @onclick="HandleRegister">Register</button> *@
 @*     </div> *@
 @* </div> *@
 @* *@
@@ -33,4 +33,143 @@
 @*             Navigation.NavigateTo("/login"); *@
 @*     } *@
 @* } *@
+@* *@
+
+@page "/register"
+@using MovieRecApp.Shared.Models
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>Register</PageTitle>
+
+<EditForm EditContext="_editContext" OnValidSubmit="HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <div class="flex flex-col justify-center items-center text-center min-h-screen">
+        <h1 style="color: #e6ddcb;">Sign Up</h1>
+        <div class="login-inputs-container gap-3 m-5">
+
+            <InputText @bind-Value="_registerRequest.UserName"
+                       class="@($"{GetInputCss(nameof(_registerRequest.UserName))} form-control login-input text-center px-4 py-2 rounded-pill")"
+                       placeholder="Username" />
+            <ValidationMessage For="@(() => _registerRequest.UserName)" />
+
+            <InputText @bind-Value="_registerRequest.Email"
+                       class="@($"{GetInputCss(nameof(_registerRequest.Email))} form-control login-input text-center px-4 py-2 rounded-pill")"
+                       placeholder="Email" />
+            <ValidationMessage For="@(() => _registerRequest.Email)" />
+
+            <InputText @bind-Value="_registerRequest.Password"
+                       type="password"
+                       class="@($"{GetInputCss(nameof(_registerRequest.Password))} form-control login-input text-center px-4 py-2 rounded-pill")"
+                       placeholder="Password" />
+            <ValidationMessage For="@(() => _registerRequest.Password)" />
+
+            <InputText @bind-Value="_registerRequest.ConfirmPassword"
+                       type="password"
+                       class="@($"{GetInputCss(nameof(_registerRequest.ConfirmPassword))} form-control login-input text-center px-4 py-2 rounded-pill")"
+                       placeholder="Confirm Password" />
+            <ValidationMessage For="@(() => _registerRequest.ConfirmPassword)" />
+        </div>
+
+        <div class="login-buttons-container">
+            <button type="submit" class="login-button text-center px-4 py-2 rounded-pill">
+                Register
+            </button>
+        </div>
+    </div>
+</EditForm>
+
+
+@code {
+    private RegisterRequest _registerRequest = new();
+    private EditContext _editContext;
+    private ValidationMessageStore _validationMessageStore;
+
+    protected override void OnInitialized()
+    {
+        _editContext = new EditContext(_registerRequest);
+        _validationMessageStore = new ValidationMessageStore(_editContext);
+
+        _editContext.OnFieldChanged += (sender, args) =>
+        {
+            _validationMessageStore.Clear(args.FieldIdentifier);
+            _editContext.NotifyValidationStateChanged();
+        };
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        _validationMessageStore.Clear();
+
+        var response = await Http.PostAsJsonAsync("api/auth/register", _registerRequest);
+
+        if (response.IsSuccessStatusCode)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        try
+        {
+            var errorDictionary = await response.Content.ReadFromJsonAsync<Dictionary<string, string[]>>();
+            if (errorDictionary != null && errorDictionary.Any())
+            {
+                foreach (var error in errorDictionary)
+                {
+                    var propertyName = error.Key.Split('.').Last();
+                    var fieldIdentifier = new FieldIdentifier(_registerRequest, propertyName);
+                    foreach (var errMsg in error.Value)
+                    {
+                        _validationMessageStore.Add(fieldIdentifier, errMsg);
+                    }
+                }
+            }
+            else
+            {
+                var simpleError = await response.Content.ReadFromJsonAsync<SimpleError>();
+                if (simpleError != null && !string.IsNullOrEmpty(simpleError.Message))
+                {
+                    AddServerError(simpleError.Message);
+                }
+            }
+        }
+        catch
+        {
+            var fallback = await response.Content.ReadFromJsonAsync<SimpleError>();
+            if (fallback != null && !string.IsNullOrEmpty(fallback.Message))
+            {
+                AddServerError(fallback.Message);
+            }
+        }
+
+        _editContext.NotifyValidationStateChanged();
+    }
+
+    private void AddServerError(string message)
+    {
+        FieldIdentifier fieldIdentifier;
+
+        if (message.Contains("Username", StringComparison.OrdinalIgnoreCase))
+            fieldIdentifier = new FieldIdentifier(_registerRequest, nameof(_registerRequest.UserName));
+        else if (message.Contains("Email", StringComparison.OrdinalIgnoreCase))
+            fieldIdentifier = new FieldIdentifier(_registerRequest, nameof(_registerRequest.Email));
+        else if (message.Contains("Password", StringComparison.OrdinalIgnoreCase))
+            fieldIdentifier = new FieldIdentifier(_registerRequest, nameof(_registerRequest.ConfirmPassword));
+        else
+            fieldIdentifier = new FieldIdentifier(_registerRequest, nameof(_registerRequest.Email));
+
+        _validationMessageStore.Add(fieldIdentifier, message);
+    }
+
+    private string GetInputCss(string fieldName)
+    {
+        var field = new FieldIdentifier(_registerRequest, fieldName);
+        return _editContext.GetValidationMessages(field).Any() ? "is-invalid" : string.Empty;
+    }
+
+    public class SimpleError
+    {
+        public string Message { get; set; } = string.Empty;
+    }
+}
 

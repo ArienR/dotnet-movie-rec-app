@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using MovieRecApp.Server.Interfaces;
 using MovieRecApp.Shared.Models;
 
@@ -32,24 +33,34 @@ public class AuthController : ControllerBase
     /// - **400 Bad Request** on invalid request, email already in use, or creation fails.
     /// </returns>
     [HttpPost("register")]
+    [EnableRateLimiting("RegisterLimiter")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest registerRequest)
     {
         // Validate input
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
         
-        if (registerRequest.Password != registerRequest.ConfirmPassword)
-            return BadRequest(new { message = "Passwords do not match" });
-        
-        // Check if email already exists
         var existingEmail = await _userManager.FindByEmailAsync(registerRequest.Email);
         if (existingEmail != null)
-            return Conflict(new { message = "Email is already in use." });
-        
-        // Check if username already exists
+        {
+            ModelState.AddModelError("Email", "Email is already in use.");
+        }
+
         var existingUsername = await _userManager.FindByNameAsync(registerRequest.UserName);
         if (existingUsername != null)
-            return Conflict(new { message = "Username is already in use." });
+        {
+            ModelState.AddModelError("UserName", "Username is already in use.");
+        }
+
+        // Return early only if any conflict errors accumulated
+        if (!ModelState.IsValid)
+            return Conflict(ModelState);
+        
+        if (registerRequest.Password != registerRequest.ConfirmPassword)
+        {
+            ModelState.AddModelError("ConfirmPassword", "Passwords do not match");
+            return BadRequest(ModelState);
+        }
         
         // Create a new user
         var user = new IdentityUser
@@ -81,12 +92,12 @@ public class AuthController : ControllerBase
                    await _userManager.FindByNameAsync(loginRequest.EmailOrUsername);
         if (user == null)
             // No user found, return 401 Unauthorized
-            return Unauthorized(new { message = "Email or password is incorrect." });
+            return Unauthorized(new { message = "Email/Username or password is incorrect." });
 
         var isPasswordValid = await _userManager.CheckPasswordAsync(user, loginRequest.Password);
         if (!isPasswordValid)
             // Password is incorrect, return 401 Unauthorized
-            return Unauthorized(new { message = "Email or password is incorrect." });
+            return Unauthorized(new { message = "Email/Username or password is incorrect." });
 
         var token = _jwtService.GenerateToken(user);
 

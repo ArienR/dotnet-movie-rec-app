@@ -203,3 +203,32 @@ code {
     text-security: disc;
     -webkit-text-security: disc;
 }
+
+.form-control.is-valid {
+
+    border-color: #62bd93;
+}
+
+.form-control.is-invalid {
+    border-color: #dc3545;
+}
+
+.login-input::placeholder {
+    color: #e6ddcb;
+}
+
+.validation-message {
+    color: var(--bs-danger);
+}
+
+.validation-message {
+    text-align: left;
+    color: var(--bs-danger);
+    margin-left: 1rem;
+}
+
+.login-input:focus {
+    background-color: rgba(0, 0, 0, 0.2) !important;
+    color: #e6ddcb;
+    border-color: #e6ddcbuise;
+}
