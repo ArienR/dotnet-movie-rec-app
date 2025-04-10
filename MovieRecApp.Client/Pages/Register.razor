@@ -8,30 +8,61 @@
 <EditForm EditContext="_editContext" OnValidSubmit="HandleValidSubmit">
     <DataAnnotationsValidator />
     <div class="flex flex-col justify-center items-center text-center min-h-screen">
-        <h1 style="color: #e6ddcb;">Create an Account</h1>
-        <div class="login-inputs-container gap-3 m-5">
+        <h1 style="color: #e6ddcb;" class="mb-5">Create an Account</h1>
+        <div class="login-inputs-container gap-3 mx-5 mb-2">
 
-            <InputText @bind-Value="_registerRequest.UserName"
-                       class="@($"{GetInputCss(nameof(_registerRequest.UserName))} form-control login-input text-center px-4 py-2 rounded-pill")"
-                       placeholder="Username" />
-            <ValidationMessage For="@(() => _registerRequest.UserName)" />
+            <div class="input-container">
+                <label class="floating-label @(string.IsNullOrWhiteSpace(_registerRequest.UserName) ? "hidden" : "")">
+                    Username
+                </label>
+                <InputText @bind-Value="_registerRequest.UserName"
+                           class="@($"{GetInputCss(nameof(_registerRequest.UserName))} form-control login-input text-center px-4 py-2 rounded-pill")"
+                           placeholder="Username" />
+            </div>
+            <div class="validation-wrapper">
+                <ValidationMessage For="@(() => _registerRequest.UserName)" />
+            </div>
 
-            <InputText @bind-Value="_registerRequest.Email"
-                       class="@($"{GetInputCss(nameof(_registerRequest.Email))} form-control login-input text-center px-4 py-2 rounded-pill")"
-                       placeholder="Email" />
-            <ValidationMessage For="@(() => _registerRequest.Email)" />
 
-            <InputText @bind-Value="_registerRequest.Password"
-                       type="password"
-                       class="@($"{GetInputCss(nameof(_registerRequest.Password))} form-control login-input text-center px-4 py-2 rounded-pill")"
-                       placeholder="Password" />
-            <ValidationMessage For="@(() => _registerRequest.Password)" />
+            <div class="input-container">
+                <label class="floating-label @(string.IsNullOrWhiteSpace(_registerRequest.Email) ? "hidden" : "")">
+                    Email
+                </label>
+                <InputText @bind-Value="_registerRequest.Email"
+                           class="@($"{GetInputCss(nameof(_registerRequest.Email))} form-control login-input text-center px-4 py-2 rounded-pill")"
+                           placeholder="Email" />
+            </div>
+            <div class="validation-wrapper">
+                <ValidationMessage For="@(() => _registerRequest.Email)" />
+            </div>
 
-            <InputText @bind-Value="_registerRequest.ConfirmPassword"
-                       type="password"
-                       class="@($"{GetInputCss(nameof(_registerRequest.ConfirmPassword))} form-control login-input text-center px-4 py-2 rounded-pill")"
-                       placeholder="Confirm Password" />
-            <ValidationMessage For="@(() => _registerRequest.ConfirmPassword)" />
+
+            <div class="input-container">
+                <label class="floating-label @(string.IsNullOrWhiteSpace(_registerRequest.Password) ? "hidden" : "")">
+                    Password
+                </label>
+                <InputText @bind-Value="_registerRequest.Password"
+                           type="password"
+                           class="@($"{GetInputCss(nameof(_registerRequest.Password))} form-control login-input text-center px-4 py-2 rounded-pill")"
+                           placeholder="Password" />
+            </div>
+            <div class="validation-wrapper">
+                <ValidationMessage For="@(() => _registerRequest.Password)" />
+            </div>
+
+
+            <div class="input-container">
+                <label class="floating-label @(string.IsNullOrWhiteSpace(_registerRequest.ConfirmPassword) ? "hidden" : "")">
+                    Confirm Password
+                </label>
+                <InputText @bind-Value="_registerRequest.ConfirmPassword"
+                           type="password"
+                           class="@($"{GetInputCss(nameof(_registerRequest.ConfirmPassword))} form-control login-input text-center px-4 py-2 rounded-pill")"
+                           placeholder="Confirm Password" />
+            </div>
+            <div class="validation-wrapper">
+                <ValidationMessage For="@(() => _registerRequest.ConfirmPassword)" />
+            </div>
         </div>
 
         <div class="login-buttons-container">

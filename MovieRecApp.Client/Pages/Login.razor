@@ -12,30 +12,48 @@
     <DataAnnotationsValidator />
 
     <div class="flex flex-col justify-center items-center text-center min-h-screen">
-        <h1 style="color: #e6ddcb;" class="mb-5">Login</h1>
+        <h1 style="color: #e6ddcb;" class="mb-3">Login</h1>
 
-        @if (!string.IsNullOrWhiteSpace(_errorMessage))
-        {
-            <p class="validation-message mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-exclamation-circle" viewBox="0 0 16 16">
-                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
-                    <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0M7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0z"/>
-                </svg>
-                @_errorMessage
-            </p>
-        }
+        <div class="validation-wrapper mb-2">
+            @if (!string.IsNullOrWhiteSpace(_errorMessage))
+            {
+            <div class="validation-wrapper">
+                <p class="validation-message">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-exclamation-circle" viewBox="0 0 16 16">
+                        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
+                        <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0M7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0z"/>
+                    </svg>
+                    @_errorMessage
+                </p>
+            </div>
+            }
+        </div>
 
-        <div class="login-inputs-container gap-3 mx-5 mb-5">
-            <InputText @bind-Value="_loginRequest.EmailOrUsername"
-                       class="@($"form-control login-input text-center px-4 py-2 rounded-pill {GetInputCss(nameof(_loginRequest.EmailOrUsername))}")"
-                       placeholder="Email or Username" />
-            <ValidationMessage For="@(() => _loginRequest.EmailOrUsername)" />
+        <div class="login-inputs-container gap-3 mx-5 mb-3">
+            <div class="input-container">
+                <InputText id="emailOrUsername"
+                           @bind-Value="_loginRequest.EmailOrUsername"
+                           @bind-Value:event="oninput"
+                           class="@($"form-control login-input text-center px-4 py-2 rounded-pill {GetInputCss(nameof(_loginRequest.EmailOrUsername))}")"
+                           placeholder="Email or Username" />
+                <label for="emailOrUsername" class="floating-label">Email or Username</label>
+            </div>
+            <div class="validation-wrapper">
+                <ValidationMessage For="@(() => _loginRequest.EmailOrUsername)" />
+            </div>
 
-            <InputText @bind-Value="_loginRequest.Password"
-                       type="password"
-                       class="@($"form-control login-input password-input text-center px-4 py-2 rounded-pill {GetInputCss(nameof(_loginRequest.Password))}")"
-                       placeholder="Password" />
-            <ValidationMessage For="@(() => _loginRequest.Password)" />
+            <div class="input-container">
+                <InputText id="password"
+                           @bind-Value="_loginRequest.Password"
+                           @bind-Value:event="oninput"
+                           type="password"
+                           class="@($"form-control login-input password-input text-center px-4 py-2 rounded-pill {GetInputCss(nameof(_loginRequest.Password))}")"
+                           placeholder="Password" />
+                <label for="password" class="floating-label">Password</label>
+            </div>
+            <div class="validation-wrapper">
+                <ValidationMessage For="@(() => _loginRequest.Password)" />
+            </div>
         </div>
 
         <div class="login-buttons-container">
@@ -91,7 +109,7 @@
                 _welcomeMessage = $"Welcome, {user}. Please sign in.";
                 _showWelcome = true;
 
-                await Task.Delay(5000); // Wait 3s
+                await Task.Delay(5000);
                 _fadeOutWelcome = true;
                 StateHasChanged();
 
