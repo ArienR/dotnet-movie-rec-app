@@ -7,30 +7,73 @@
 
 <PageTitle>Login</PageTitle>
 
-<div class="flex flex-col justify-center items-center text-center min-h-screen">
-    @* <h1 style="color: #e6ddcb;">Login</h1> *@
-    <div class="login-inputs-container gap-3 m-5">
-        <input type="text" placeholder="Username or Email" class="login-input text-center px-4 py-2 rounded-pill"
-               @bind="_loginRequest.EmailOrUsername">
-        <input type="password" placeholder="Password" class="login-input password-input text-center px-4 py-2 rounded-pill"
-               @bind="_loginRequest.Password">
+<EditForm EditContext="_editContext" OnValidSubmit="HandleLogin">
+    <DataAnnotationsValidator />
+
+    <div class="flex flex-col justify-center items-center text-center min-h-screen">
+        <h1 style="color: #e6ddcb;" class="mb-5">Login</h1>
+
+        @if (!string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            <p class="validation-message mb-2 d-flex align-items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-exclamation-circle" viewBox="0 0 16 16">
+                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
+                    <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0M7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0z"/>
+                </svg>
+                @_errorMessage
+            </p>
+        }
+
+        <div class="login-inputs-container gap-3 mx-5 mb-5">
+            <InputText @bind-Value="_loginRequest.EmailOrUsername"
+                       class="@($"form-control login-input text-center px-4 py-2 rounded-pill {GetInputCss(nameof(_loginRequest.EmailOrUsername))}")"
+                       placeholder="Email or Username" />
+            <ValidationMessage For="@(() => _loginRequest.EmailOrUsername)" />
+
+            <InputText @bind-Value="_loginRequest.Password"
+                       type="password"
+                       class="@($"form-control login-input password-input text-center px-4 py-2 rounded-pill {GetInputCss(nameof(_loginRequest.Password))}")"
+                       placeholder="Password" />
+            <ValidationMessage For="@(() => _loginRequest.Password)" />
+        </div>
+
+        <div class="login-buttons-container">
+            <button type="submit" class="login-button text-center px-4 py-2 rounded-pill">Login</button>
+            <button type="button" class="create-account-button text-center px-4 py-2 rounded-pill" @onclick="NavigateToRegister">Create An Account</button>
+        </div>
     </div>
-    <div class="login-buttons-container">
-        <button class="login-button text-center px-4 py-2 rounded-pill" @onclick="HandleLogin">Login</button>
-        <button class="create-account-button text-center px-4 py-2 rounded-pill" @onclick="NavigateToRegister">Create An Account</button>
-    </div>
-    @if (!string.IsNullOrEmpty(_errorMessage))
-    {
-        <p class="text-red-500">@_errorMessage</p> <!-- Display error messages -->
-    }
-</div>
+</EditForm>
+
 
 @code {
     private LoginRequest _loginRequest = new();
     private string? _errorMessage;
+    private EditContext _editContext;
+    private ValidationMessageStore _validationMessageStore;
+
+    protected override void OnInitialized()
+    {
+        _editContext = new EditContext(_loginRequest);
+        _validationMessageStore = new ValidationMessageStore(_editContext);
+
+        _editContext.OnFieldChanged += (sender, args) =>
+        {
+            _validationMessageStore.Clear(args.FieldIdentifier);
+            _editContext.NotifyValidationStateChanged();
+
+            // Clear global error once the user interacts again
+            _errorMessage = null;
+        };
+    }
 
     private async Task HandleLogin()
     {
+        _validationMessageStore.Clear();
+        _errorMessage = null;
+
+        if (!_editContext.Validate())
+            return;
+
         try
         {
             var response = await Http.PostAsJsonAsync("api/auth/login", _loginRequest);
@@ -39,24 +82,38 @@
                 var result = await response.Content.ReadFromJsonAsync<TokenResponse>();
                 if (result != null)
                 {
-                    // Store JWT locally
                     await LocalStorage.SetItemAsync("authToken", result.Token);
                     Navigation.NavigateTo("/home");
                 }
             }
             else
             {
-                _errorMessage = "invalid login credentials";
+                var errorObj = await response.Content.ReadFromJsonAsync<SimpleError>();
+                _errorMessage = errorObj?.Message ?? "Invalid login credentials.";
             }
         }
-        catch (Exception e)
+        catch
         {
             _errorMessage = "An error occurred. Please try again.";
         }
+
+        _editContext.NotifyValidationStateChanged();
     }
-    
+
     private void NavigateToRegister()
     {
         Navigation.NavigateTo("/register");
     }
+
+    private string GetInputCss(string fieldName)
+    {
+        var field = new FieldIdentifier(_loginRequest, fieldName);
+        return _editContext.GetValidationMessages(field).Any() ? "is-invalid" : "";
+    }
+
+    public class SimpleError
+    {
+        public string Message { get; set; } = string.Empty;
+    }
 }
+
