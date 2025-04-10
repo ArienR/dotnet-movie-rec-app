@@ -222,13 +222,30 @@ code {
 }
 
 .validation-message {
-    text-align: left;
     color: var(--bs-danger);
-    margin-left: 1rem;
 }
 
 .login-input:focus {
     background-color: rgba(0, 0, 0, 0.2) !important;
     color: #e6ddcb;
-    border-color: #e6ddcbuise;
+    border-color: #e6ddcb;
+}
+
+.welcome-wrapper {
+    height: 1.5rem;
+    display: flex;
+    margin-top: 0.75rem;
+    justify-content: center;
+    align-items: center;
+}
+
+.welcome-message {
+    color: #e6ddcb;
+    font-weight: 400;
+    font-size: 1.25rem;
+    transition: 1s all;
+}
+
+.welcome-message.fade-out {
+    opacity: 0;
 }
