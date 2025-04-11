@@ -31,25 +31,27 @@
 
         <div class="login-inputs-container gap-3 mx-5 mb-3">
             <div class="input-container">
+                <label class="floating-label text-start @(string.IsNullOrWhiteSpace(_loginRequest.EmailOrUsername) ? "hidden" : "")">
+                    Email or Username
+                </label>
                 <InputText id="emailOrUsername"
-                           @bind-Value="_loginRequest.EmailOrUsername"
-                           @bind-Value:event="oninput"
+                           @bind-Value="@_loginRequest.EmailOrUsername"
                            class="@($"form-control login-input text-center px-4 py-2 rounded-pill {GetInputCss(nameof(_loginRequest.EmailOrUsername))}")"
-                           placeholder="Email or Username" />
-                <label for="emailOrUsername" class="floating-label">Email or Username</label>
-            </div>
+                           placeholder="Email or Username"
+                           oninput="@( (ChangeEventArgs e) => UpdateField(e, val => _loginRequest.EmailOrUsername = val, nameof(_loginRequest.EmailOrUsername)) )" />            </div>
             <div class="validation-wrapper">
                 <ValidationMessage For="@(() => _loginRequest.EmailOrUsername)" />
             </div>
 
             <div class="input-container">
-                <InputText id="password"
-                           @bind-Value="_loginRequest.Password"
-                           @bind-Value:event="oninput"
+                <label class="floating-label text-start @(string.IsNullOrWhiteSpace(_loginRequest.Password) ? "hidden" : "")">
+                    Password
+                </label>
+                <InputText @bind-Value="_loginRequest.Password"
                            type="password"
                            class="@($"form-control login-input password-input text-center px-4 py-2 rounded-pill {GetInputCss(nameof(_loginRequest.Password))}")"
-                           placeholder="Password" />
-                <label for="password" class="floating-label">Password</label>
+                           placeholder="Password"
+                           oninput="@( (ChangeEventArgs e) => UpdateField(e, val => _loginRequest.Password = val, nameof(_loginRequest.Password)) )" />
             </div>
             <div class="validation-wrapper">
                 <ValidationMessage For="@(() => _loginRequest.Password)" />
@@ -76,7 +78,9 @@
     private string? _welcomeMessage;
     private bool _showWelcome = false;
     private bool _fadeOutWelcome = false;
+    private Dictionary<string, bool> _fieldTouched = new Dictionary<string, bool>();
 
+ 
     private EditContext _editContext;
     private ValidationMessageStore _validationMessageStore;
 
@@ -100,7 +104,7 @@
     private async Task DisplayWelcomeMessage()
     {
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
-        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+        var query = QueryHelpers.ParseQuery(uri.Query);
         if (query.TryGetValue("message", out var msgType) &&
             query.TryGetValue("user", out var user))
         {
@@ -120,6 +124,18 @@
             }
         }
     }
+    
+    private void UpdateField(ChangeEventArgs e, Action<string> setter, string propertyName)
+    {
+        // Safely convert the event value to string
+        var newValue = e.Value?.ToString() ?? string.Empty;
+        // Set the target field using the provided setter
+        setter(newValue);
+        // Notify the EditContext that the field has changed for validation
+        _editContext.NotifyFieldChanged(new FieldIdentifier(_loginRequest, propertyName));
+    }
+
+
 
     private async Task HandleLogin()
     {

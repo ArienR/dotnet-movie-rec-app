@@ -252,7 +252,6 @@ code {
 .validation-message {
     color: var(--bs-danger);
     font-size: 0.9rem;
-    margin-bottom: 0.5rem;
     font-weight: 500;
     opacity: 1;
     transition: opacity 0.4s ease;
@@ -264,7 +263,6 @@ code {
 
 .input-container {
     position: relative;
-    margin-bottom: 0.75rem;
     width: 100%;
     display: flex;
     flex-direction: column;
@@ -273,19 +271,16 @@ code {
 
 /* Floating label initially positioned in the center */
 .floating-label {
-    position: absolute;
-    left: 1.25rem;
-    top: 50%;
-    transform: translateY(-50%);
     color: #e6ddcb;
-    font-size: 0.85rem;
-    opacity: 0;
+    opacity: 1;
     pointer-events: none;
     transition: opacity 0.2s ease, transform 0.2s ease;
+    width: 250px;
+    margin-bottom: 0.25rem;
 }
 
-/* Show and move the label up when input is focused or has content */
-.login-input:not(:placeholder-shown) + .floating-label {
-    opacity: 1;
-    transform: translateY(-100%);
+/*!* Show and move the label up when input is focused or has content *!*/
+.floating-label.hidden {
+    opacity: 0;
+    /* You might also want to adjust transform here if needed */
 }
