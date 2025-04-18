@@ -10,55 +10,59 @@
     <div class="flex flex-col justify-center items-center text-center min-h-screen">
         <h1 style="color: #e6ddcb;" class="mb-5">Create an Account</h1>
         <div class="login-inputs-container gap-3 mx-5 mb-2">
-
             <div class="input-container">
-                <label class="floating-label @(string.IsNullOrWhiteSpace(_registerRequest.UserName) ? "hidden" : "")">
+                <label class="floating-label text-start @(string.IsNullOrWhiteSpace(_registerRequest.UserName) ? "hidden" : "")">
                     Username
                 </label>
-                <InputText @bind-Value="_registerRequest.UserName"
-                           class="@($"{GetInputCss(nameof(_registerRequest.UserName))} form-control login-input text-center px-4 py-2 rounded-pill")"
-                           placeholder="Username" />
+                <InputText id="username"
+                           @bind-Value="_registerRequest.UserName"
+                           class="@($"form-control login-input text-center px-4 py-2 rounded-pill {GetInputCss(nameof(_registerRequest.UserName))}")"
+                           placeholder="Username"
+                           oninput="@( (ChangeEventArgs e) => UpdateField(e, val => _registerRequest.UserName = val, nameof(_registerRequest.UserName)) )" />
             </div>
             <div class="validation-wrapper">
                 <ValidationMessage For="@(() => _registerRequest.UserName)" />
             </div>
 
-
             <div class="input-container">
-                <label class="floating-label @(string.IsNullOrWhiteSpace(_registerRequest.Email) ? "hidden" : "")">
+                <label class="floating-label text-start @(string.IsNullOrWhiteSpace(_registerRequest.Email) ? "hidden" : "")">
                     Email
                 </label>
-                <InputText @bind-Value="_registerRequest.Email"
-                           class="@($"{GetInputCss(nameof(_registerRequest.Email))} form-control login-input text-center px-4 py-2 rounded-pill")"
-                           placeholder="Email" />
+                <InputText id="email"
+                           @bind-Value="_registerRequest.Email"
+                           class="@($"form-control login-input text-center px-4 py-2 rounded-pill {GetInputCss(nameof(_registerRequest.Email))}")"
+                           placeholder="Email"
+                           oninput="@( (ChangeEventArgs e) => UpdateField(e, val => _registerRequest.Email = val, nameof(_registerRequest.Email)) )" />
             </div>
             <div class="validation-wrapper">
                 <ValidationMessage For="@(() => _registerRequest.Email)" />
             </div>
 
-
             <div class="input-container">
-                <label class="floating-label @(string.IsNullOrWhiteSpace(_registerRequest.Password) ? "hidden" : "")">
+                <label class="floating-label text-start @(string.IsNullOrWhiteSpace(_registerRequest.Password) ? "hidden" : "")">
                     Password
                 </label>
-                <InputText @bind-Value="_registerRequest.Password"
+                <InputText id="password"
                            type="password"
-                           class="@($"{GetInputCss(nameof(_registerRequest.Password))} form-control login-input text-center px-4 py-2 rounded-pill")"
-                           placeholder="Password" />
+                           @bind-Value="_registerRequest.Password"
+                           class="@($"form-control login-input text-center px-4 py-2 rounded-pill {GetInputCss(nameof(_registerRequest.Password))}")"
+                           placeholder="Password"
+                           oninput="@( (ChangeEventArgs e) => UpdateField(e, val => _registerRequest.Password = val, nameof(_registerRequest.Password)) )" />
             </div>
             <div class="validation-wrapper">
                 <ValidationMessage For="@(() => _registerRequest.Password)" />
             </div>
 
-
             <div class="input-container">
-                <label class="floating-label @(string.IsNullOrWhiteSpace(_registerRequest.ConfirmPassword) ? "hidden" : "")">
+                <label class="floating-label text-start @(string.IsNullOrWhiteSpace(_registerRequest.ConfirmPassword) ? "hidden" : "")">
                     Confirm Password
                 </label>
-                <InputText @bind-Value="_registerRequest.ConfirmPassword"
+                <InputText id="confirm-password"
                            type="password"
-                           class="@($"{GetInputCss(nameof(_registerRequest.ConfirmPassword))} form-control login-input text-center px-4 py-2 rounded-pill")"
-                           placeholder="Confirm Password" />
+                           @bind-Value="_registerRequest.ConfirmPassword"
+                           class="@($"form-control login-input text-center px-4 py-2 rounded-pill {GetInputCss(nameof(_registerRequest.ConfirmPassword))}")"
+                           placeholder="Confirm Password"
+                           oninput="@( (ChangeEventArgs e) => UpdateField(e, val => _registerRequest.ConfirmPassword = val, nameof(_registerRequest.ConfirmPassword)) )" />
             </div>
             <div class="validation-wrapper">
                 <ValidationMessage For="@(() => _registerRequest.ConfirmPassword)" />
@@ -164,6 +168,16 @@
     public class SimpleError
     {
         public string Message { get; set; } = string.Empty;
+    }
+    
+    private void UpdateField(ChangeEventArgs e, Action<string> setter, string propertyName)
+    {
+        // Safely convert the event value to string
+        var newValue = e.Value?.ToString() ?? string.Empty;
+        // Set the target field using the provided setter
+        setter(newValue);
+        // Notify the EditContext that the field has changed for validation
+        _editContext.NotifyFieldChanged(new FieldIdentifier(_registerRequest, propertyName));
     }
 }
 
