@@ -209,6 +209,42 @@ namespace MovieRecApp.Server.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("MovieRecApp.Server.Models.Movie", b =>
+                {
+                    b.Property<string>("MovieId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PosterUrl")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("MovieId");
+
+                    b.ToTable("Movies");
+                });
+
+            modelBuilder.Entity("MovieRecApp.Server.Models.Rating", b =>
+                {
+                    b.Property<string>("UserName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("MovieId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<float>("Score")
+                        .HasColumnType("REAL");
+
+                    b.HasKey("UserName", "MovieId");
+
+                    b.HasIndex("MovieId");
+
+                    b.ToTable("Ratings");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -258,6 +294,22 @@ namespace MovieRecApp.Server.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("MovieRecApp.Server.Models.Rating", b =>
+                {
+                    b.HasOne("MovieRecApp.Server.Models.Movie", "Movie")
+                        .WithMany("Ratings")
+                        .HasForeignKey("MovieId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Movie");
+                });
+
+            modelBuilder.Entity("MovieRecApp.Server.Models.Movie", b =>
+                {
+                    b.Navigation("Ratings");
                 });
 #pragma warning restore 612, 618
         }
