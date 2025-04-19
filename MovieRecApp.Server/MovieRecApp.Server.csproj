@@ -17,6 +17,8 @@
           <PrivateAssets>all</PrivateAssets>
         </PackageReference>
         <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.1" />
+        <PackageReference Include="Microsoft.ML" Version="5.0.0-preview.1.25127.4" />
+        <PackageReference Include="Microsoft.ML.Recommender" Version="0.23.0-preview.1.25127.4" />
         <PackageReference Include="Swashbuckle.AspNetCore" Version="7.2.0" />
         <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.3.1" />
     </ItemGroup>

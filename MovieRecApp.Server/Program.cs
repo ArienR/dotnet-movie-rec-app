@@ -121,6 +121,7 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddHttpClient<ILetterboxdScraper, LetterboxdScraper>();
+builder.Services.AddScoped<IRecommendationService, RecommendationService>();
 
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
