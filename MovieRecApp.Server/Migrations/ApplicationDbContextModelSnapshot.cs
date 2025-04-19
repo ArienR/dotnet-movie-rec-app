@@ -215,7 +215,6 @@ namespace MovieRecApp.Server.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("PosterUrl")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Title")

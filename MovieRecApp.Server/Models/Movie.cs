@@ -11,7 +11,7 @@ public class Movie
     [Required]
     public string Title { get; set; }
 
-    public string PosterUrl { get; set; }
+    public string? PosterUrl { get; set; }
 
     public ICollection<Rating> Ratings { get; set; }
 }

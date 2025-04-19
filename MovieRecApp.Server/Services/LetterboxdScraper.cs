@@ -1,0 +1,84 @@
+﻿using HtmlAgilityPack;
+using Microsoft.EntityFrameworkCore;
+using MovieRecApp.Server.Data;
+using MovieRecApp.Server.Interfaces;
+using MovieRecApp.Server.Models;
+
+public class LetterboxdScraper : ILetterboxdScraper
+{
+    private readonly HttpClient _http;
+    private readonly ApplicationDbContext _db;
+
+    public LetterboxdScraper(HttpClient http, ApplicationDbContext db)
+    {
+        _http = http;
+        _db = db;
+    }
+
+    public async Task ScrapeRatingsForUserAsync(string username)
+    {
+        // 1) Determine number of pages for this user
+        var urlBase = $"https://letterboxd.com/{username}/films/by/date/";
+        var doc0 = new HtmlDocument();
+        var page0 = await _http.GetStringAsync(urlBase);
+        doc0.LoadHtml(page0);
+
+        // Look for paginate links
+        var pageNodes = doc0.DocumentNode
+            .SelectNodes("//li[contains(@class,'paginate-page')]/a");
+        int pageCount = pageNodes != null
+            ? pageNodes.Last().InnerText.Trim().Replace(",", "") is string t && int.TryParse(t, out var n) ? n : 1
+            : 1;
+
+        // 2) Loop over each page
+        for (int p = 1; p <= pageCount; p++)
+        {
+            var pageHtml = await _http.GetStringAsync(urlBase + $"page/{p}/");
+            var doc = new HtmlDocument();
+            doc.LoadHtml(pageHtml);
+
+            // Each review is in <li class="poster-container">
+            var items = doc.DocumentNode.SelectNodes("//li[contains(@class,'poster-container')]");
+            if (items == null) continue;
+
+            foreach (var item in items)
+            {
+                // Extract movieId from data-target-link="/film/{movieId}/"
+                var posterDiv = item.SelectSingleNode(".//div[contains(@class,'film-poster')]");
+                var link = posterDiv?.GetAttributeValue("data-target-link", "");
+                var movieId = link?.Split('/', System.StringSplitOptions.RemoveEmptyEntries).Last();
+                if (string.IsNullOrEmpty(movieId)) continue;
+
+                // Extract rating class e.g. "rating-8" => 8
+                var ratingSpan = item.SelectSingleNode(".//span[contains(@class,'rating')]");
+                var cls = ratingSpan?.GetAttributeValue("class", "");
+                var score = cls?.Split('-').Last() is string s && float.TryParse(s, out var r) ? r : 0;
+
+                // Upsert Movie skeleton
+                if (!await _db.Movies.AnyAsync(m => m.MovieId == movieId))
+                {
+                    _db.Movies.Add(new Movie
+                    {
+                        MovieId = movieId,
+                        Title = movieId
+                    });
+                }
+
+                // Upsert Rating
+                var existing = await _db.Ratings.FindAsync(username, movieId);
+                if (existing != null)
+                    existing.Score = score;
+                else
+                    _db.Ratings.Add(new Rating
+                    {
+                        UserName = username,
+                        MovieId = movieId,
+                        Score = score
+                    });
+            }
+
+            // Save per page to avoid huge batches
+            await _db.SaveChangesAsync();
+        }
+    }
+}
