@@ -9,4 +9,6 @@ public interface IRecommendationService
         string username,
         int count
     );
+    Task<(Movie Movie, float Score)[]> GetTopRecommendationsWithMoviesAsync(
+        string username, int count);
 }

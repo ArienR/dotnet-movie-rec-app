@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using MovieRecApp.Server.Data;
 using MovieRecApp.Server.Interfaces;
 
 namespace MovieRecApp.Server.Controllers;
@@ -24,7 +25,18 @@ public class RecommendationController : ControllerBase
         string username,
         [FromQuery] int count = 30)
     {
-        var preds = await _recService.GetTopRecommendationsAsync(username, count);
-        return Ok(preds);
+        // 1) Get raw predictions + movie entities
+        var raw = await _recService.GetTopRecommendationsWithMoviesAsync(username, count);
+
+        // 2) Map into DTOs
+        var dtos = raw.Select(x => new RecommendationDto
+        {
+            MovieId        = x.Movie.MovieId,
+            Title          = x.Movie.Title,
+            PosterUrl      = x.Movie.PosterUrl,
+            PredictedScore = x.Score
+        }).ToList();
+
+        return Ok(dtos);
     }
 }

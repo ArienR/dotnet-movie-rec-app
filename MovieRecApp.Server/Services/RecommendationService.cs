@@ -115,4 +115,42 @@ public class RecommendationService : IRecommendationService
             .Select(x => new RatingPrediction { PredictedScore = x.score })
             .ToArray();
     }
+    
+    public async Task<(Movie Movie, float Score)[]> GetTopRecommendationsWithMoviesAsync(
+        string username, int count)
+    {
+        if (_model == null)
+            throw new InvalidOperationException(
+                "Model not trained. Call RetrainModelAsync first.");
+
+        // Build a prediction engine once
+        var engine = _mlContext.Model
+            .CreatePredictionEngine<RatingInput, RatingPrediction>(_model);
+
+        // 1) Find all movies the user has rated
+        var seenMovieIds = await _db.Ratings
+            .Where(r => r.UserName == username)
+            .Select(r => r.MovieId)
+            .ToListAsync();
+
+        // 2) Load all movies and filter out seen ones
+        var candidates = await _db.Movies
+            .Where(m => !seenMovieIds.Contains(m.MovieId))
+            .ToListAsync();
+
+        // 3) Score each and take the top N
+        var scored = candidates
+            .Select(m => (
+                Movie: m,
+                Score: engine.Predict(
+                    new RatingInput { UserName = username, MovieId = m.MovieId }
+                ).PredictedScore
+            ))
+            .OrderByDescending(x => x.Score)
+            .Take(count)
+            .ToArray();
+
+        return scored;
+    }
+
 }
