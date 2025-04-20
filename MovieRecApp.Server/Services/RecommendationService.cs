@@ -23,8 +23,17 @@ public class RecommendationService : IRecommendationService
         // Attempt to load existing model
         if (File.Exists(MODEL_PATH))
         {
-            using var stream = File.OpenRead(MODEL_PATH);
-            _model = _mlContext.Model.Load(stream, out _);
+            try
+            {
+                using var stream = File.OpenRead(MODEL_PATH);
+                _model = _mlContext.Model.Load(stream, out _);
+            }
+            catch (Exception e)
+            {
+                // Log and ignore a bad model file so retrain can overwrite it
+                Console.Error.WriteLine($"[RecommendationService] Failed to load model: {e.Message}");
+                _model = null;
+            }
         }
     }
 
