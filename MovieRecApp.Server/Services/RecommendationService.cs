@@ -146,6 +146,7 @@ public class RecommendationService : IRecommendationService
                     new RatingInput { UserName = username, MovieId = m.MovieId }
                 ).PredictedScore
             ))
+            .Where(x => !float.IsInfinity(x.Score) && !float.IsNaN(x.Score))
             .OrderByDescending(x => x.Score)
             .Take(count)
             .ToArray();
