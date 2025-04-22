@@ -29,9 +29,6 @@ public class RecommendationController : ControllerBase
     {
         try
         {
-            // Push the guard into the service
-            await _recService.EnsureUserHasRatingsAsync(username);
-
             var recs = await _recService.GetTopRecommendationsWithMoviesAsync(username, count);
             return Ok(recs.Select(x => new RecommendationDto
             {

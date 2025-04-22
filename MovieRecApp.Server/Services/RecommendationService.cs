@@ -13,51 +13,50 @@ public class RecommendationService : IRecommendationService
     private readonly ApplicationDbContext _db;
     private readonly MLContext _mlContext;
     private ITransformer _model;
-    private readonly object _lock = new();
+    private readonly ILetterboxdScraper _scraper;
+    private static readonly object _retrainLock = new();
+    private readonly HashSet<string> _scrapedThisScope = new();
 
-    public RecommendationService(ApplicationDbContext db)
+    public RecommendationService(
+        ApplicationDbContext db,
+        ILetterboxdScraper scraper)
     {
-        _db = db;
+        _db        = db;
         _mlContext = new MLContext();
+        _scraper   = scraper;
 
-        // Attempt to load existing model
         if (File.Exists(MODEL_PATH))
         {
             try
             {
-                using var stream = File.OpenRead(MODEL_PATH);
-                _model = _mlContext.Model.Load(stream, out _);
+                using var fs = File.OpenRead(MODEL_PATH);
+                _model = _mlContext.Model.Load(fs, out _);
             }
-            catch (Exception e)
+            catch
             {
-                // Log and ignore a bad model file so retrain can overwrite it
-                Console.Error.WriteLine($"[RecommendationService] Failed to load model: {e.Message}");
-                _model = null;
+                _model = null; // bad file will be overwritten on retrain
             }
         }
     }
 
     public async Task RetrainModelAsync()
     {
-        // 1) Load all ratings from DB
-        var allRatings = await _db.Ratings
-            .Select(r => new RatingInput
-            {
+        var trainingData = await _db.Ratings
+            .Select(r => new RatingInput {
                 UserName = r.UserName,
                 MovieId  = r.MovieId,
                 Score    = r.Score
             })
             .ToListAsync();
 
-        var dataView = _mlContext.Data.LoadFromEnumerable(allRatings);
+        var view = _mlContext.Data.LoadFromEnumerable(trainingData);
 
-        // 2) Build the CF pipeline
         var pipeline = _mlContext.Transforms
             .Conversion.MapValueToKey("userKey", nameof(RatingInput.UserName))
             .Append(_mlContext.Transforms
                 .Conversion.MapValueToKey("movieKey", nameof(RatingInput.MovieId)))
             .Append(_mlContext.Recommendation()
-                .Trainers.MatrixFactorization(new MatrixFactorizationTrainer.Options
+                .Trainers.MatrixFactorization(new()
                 {
                     MatrixColumnIndexColumnName = "userKey",
                     MatrixRowIndexColumnName    = "movieKey",
@@ -65,60 +64,36 @@ public class RecommendationService : IRecommendationService
                     NumberOfIterations          = 20,
                     ApproximationRank           = 100
                 }));
-
-        // 3) Train
-        var model = pipeline.Fit(dataView);
-
-        // 4) Save to disk
-        lock (_lock)
+        
+        // Avoid concurrent writes to the model
+        lock (_retrainLock)
         {
-            using var fs = File.OpenWrite(MODEL_PATH);
-            _mlContext.Model.Save(model, dataView.Schema, fs);
+            var model = pipeline.Fit(view);
+            using var fs = File.Create(MODEL_PATH); // truncates existing
+            _mlContext.Model.Save(model, view.Schema, fs);
             _model = model;
         }
-    }
-    
-    public async Task<RatingPrediction[]> GetTopRecommendationsAsync(
-        string username,
-        int count
-    )
-    {
-        if (_model == null)
-            throw new InvalidOperationException("Model not trained. Call RetrainModelAsync first.");
-
-        // 1) Get the list of movies the user already rated
-        var seen = await _db.Ratings
-            .Where(r => r.UserName == username)
-            .Select(r => r.MovieId)
-            .ToListAsync();
-
-        // 2) Load *all* movies into memory and filter out 'seen' ones
-        var allMovies = await _db.Movies.ToListAsync();
-        var candidates = allMovies
-            .Where(m => !seen.Contains(m.MovieId));    // IEnumerable.Where → no ambiguity
-
-        // 3) Create a single PredictionEngine (stateful, not thread‑safe, so you might want to use CreatePredictionEnginePool for real apps)
-        var engine = _mlContext.Model
-            .CreatePredictionEngine<RatingInput, RatingPrediction>(_model);
-
-        // 4) Score and take top N
-        var scored = candidates
-            .Select(m => (m, score: engine.Predict(
-                new RatingInput { UserName = username, MovieId = m.MovieId }
-            ).PredictedScore))
-            .OrderByDescending(x => x.score)
-            .Take(count)
-            .ToArray();
-
-        // 5) Return just the predictions (we’ll enrich in the controller)
-        return scored
-            .Select(x => new RatingPrediction { PredictedScore = x.score })
-            .ToArray();
     }
     
     public async Task<(Movie Movie, float Score)[]> GetTopRecommendationsWithMoviesAsync(
         string username, int count)
     {
+        // --- A) Incremental scrape & retrain if new ratings exist ---
+        var beforeCount = await _db.Ratings.CountAsync(r => r.UserName == username);
+        await _scraper.ScrapeRatingsForUserAsync(username);
+        var afterCount = await _db.Ratings.CountAsync(r => r.UserName == username);
+
+        if (_model == null || afterCount > beforeCount)
+        {
+            lock (_retrainLock)
+            {
+                // we can call synchronously inside lock since RetrainModelAsync
+                // only does CPU + IO and uses same lock internally
+                RetrainModelAsync().GetAwaiter().GetResult();
+            }
+        }
+
+        // In case retraining silently fails
         if (_model == null)
             throw new InvalidOperationException(
                 "Model not trained. Call RetrainModelAsync first.");
@@ -127,18 +102,18 @@ public class RecommendationService : IRecommendationService
         var engine = _mlContext.Model
             .CreatePredictionEngine<RatingInput, RatingPrediction>(_model);
 
-        // 1) Find all movies the user has rated
+        // Find all movies the user has rated
         var seenMovieIds = await _db.Ratings
             .Where(r => r.UserName == username)
             .Select(r => r.MovieId)
             .ToListAsync();
 
-        // 2) Load all movies and filter out seen ones
+        // Load all movies and filter out seen ones
         var candidates = await _db.Movies
             .Where(m => !seenMovieIds.Contains(m.MovieId))
             .ToListAsync();
 
-        // 3) Score each and take the top N
+        // Score each and take the top N
         var scored = candidates
             .Select(m => (
                 Movie: m,

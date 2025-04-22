@@ -43,38 +43,65 @@ public class LetterboxdScraper : ILetterboxdScraper
 
             foreach (var item in items)
             {
-                // Extract movieId from data-target-link="/film/{movieId}/"
-                var posterDiv = item.SelectSingleNode(".//div[contains(@class,'film-poster')]");
-                var link = posterDiv?.GetAttributeValue("data-target-link", "");
-                var movieId = link?.Split('/', System.StringSplitOptions.RemoveEmptyEntries).Last();
-                if (string.IsNullOrEmpty(movieId)) continue;
+                // MovieId (still using the film-poster div)
+                var posterDiv = item
+                    .SelectSingleNode(".//div[contains(@class,'film-poster')]");
+                var link = posterDiv?
+                    .GetAttributeValue("data-target-link", "")
+                    .Split('/', StringSplitOptions.RemoveEmptyEntries)
+                    .Last();
+                var movieId = link;
+                if (string.IsNullOrEmpty(movieId)) 
+                    continue;
 
-                // Extract rating class e.g. "rating-8" => 8
-                var ratingSpan = item.SelectSingleNode(".//span[contains(@class,'rating')]");
-                var cls = ratingSpan?.GetAttributeValue("class", "");
-                var score = cls?.Split('-').Last() is string s && float.TryParse(s, out var r) ? r : 0;
+                // Star rating (unchanged)
+                var ratingCls = item
+                    .SelectSingleNode(".//span[contains(@class,'rating')]")
+                    ?.GetAttributeValue("class", "") ?? "";
+                var score = ratingCls
+                    .Split('-').Last() is string s && float.TryParse(s, out var r) 
+                    ? r 
+                    : 0;
 
-                // Upsert Movie skeleton
-                if (!await _db.Movies.AnyAsync(m => m.MovieId == movieId))
+                // Poster URL from the img.image srcset (take the first URL)
+                var imgNode = item
+                    .SelectSingleNode(".//img[contains(@class,'image')]");
+                var posterUrl = imgNode?
+                    .GetAttributeValue("srcset", "")
+                    .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .FirstOrDefault();
+
+                // Upsert Movie (with PosterUrl)
+                var movie = await _db.Movies.FindAsync(movieId);
+                if (movie == null)
                 {
                     _db.Movies.Add(new Movie
                     {
-                        MovieId = movieId,
-                        Title = movieId
+                        MovieId   = movieId,
+                        Title     = movieId,
+                        PosterUrl = posterUrl
                     });
+                }
+                else if (!string.IsNullOrEmpty(posterUrl))
+                {
+                    movie.PosterUrl = posterUrl;
                 }
 
                 // Upsert Rating
                 var existing = await _db.Ratings.FindAsync(username, movieId);
                 if (existing != null)
+                {
                     existing.Score = score;
+                }
                 else
+                {
                     _db.Ratings.Add(new Rating
                     {
                         UserName = username,
-                        MovieId = movieId,
-                        Score = score
+                        MovieId  = movieId,
+                        Score    = score
                     });
+                }
             }
 
             // Save per page to avoid huge batches
