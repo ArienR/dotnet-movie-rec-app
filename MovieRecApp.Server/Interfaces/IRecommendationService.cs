@@ -11,4 +11,6 @@ public interface IRecommendationService
     );
     Task<(Movie Movie, float Score)[]> GetTopRecommendationsWithMoviesAsync(
         string username, int count);
+    Task<bool> HasRatingsAsync(string username);
+    Task EnsureUserHasRatingsAsync(string username);
 }

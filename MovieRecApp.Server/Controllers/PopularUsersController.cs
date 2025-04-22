@@ -10,7 +10,9 @@ public class PopularUsersController : ControllerBase
     private readonly IPopularUsersService _svc;
 
     public PopularUsersController(IPopularUsersService svc)
-        => _svc = svc;
+    {
+        _svc = svc;
+    }
 
     // POST /api/popularusers/seed?pages=5
     [HttpPost("seed")]

@@ -154,4 +154,16 @@ public class RecommendationService : IRecommendationService
         return scored;
     }
 
+    public async Task<bool> HasRatingsAsync(string username)
+    {
+        return await _db.Ratings.AnyAsync(r => r.UserName == username);
+    }
+
+    public async Task EnsureUserHasRatingsAsync(string username)
+    {
+        if (!await HasRatingsAsync(username))
+            throw new InvalidOperationException(
+                $"User '{username}' has no ratings. Call ScrapeRatingsForUserAsync first."
+            );
+    }
 }

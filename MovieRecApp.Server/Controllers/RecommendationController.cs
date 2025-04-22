@@ -11,7 +11,9 @@ public class RecommendationController : ControllerBase
     private readonly IRecommendationService _recService;
 
     public RecommendationController(IRecommendationService recService)
-        => _recService = recService;
+    {
+        _recService = recService;
+    }
 
     [HttpPost("retrain")]
     public async Task<IActionResult> Retrain()
@@ -25,18 +27,23 @@ public class RecommendationController : ControllerBase
         string username,
         [FromQuery] int count = 30)
     {
-        // 1) Get raw predictions + movie entities
-        var raw = await _recService.GetTopRecommendationsWithMoviesAsync(username, count);
-
-        // 2) Map into DTOs
-        var dtos = raw.Select(x => new RecommendationDto
+        try
         {
-            MovieId        = x.Movie.MovieId,
-            Title          = x.Movie.Title,
-            PosterUrl      = x.Movie.PosterUrl,
-            PredictedScore = x.Score
-        }).ToList();
+            // Push the guard into the service
+            await _recService.EnsureUserHasRatingsAsync(username);
 
-        return Ok(dtos);
+            var recs = await _recService.GetTopRecommendationsWithMoviesAsync(username, count);
+            return Ok(recs.Select(x => new RecommendationDto
+            {
+                MovieId = x.Movie.MovieId,
+                Title = x.Movie.Title,
+                PosterUrl = x.Movie.PosterUrl,
+                PredictedScore = x.Score
+            }));
+        }
+        catch (InvalidOperationException e)
+        {
+            return BadRequest(new { message = e.Message });
+        }
     }
 }
