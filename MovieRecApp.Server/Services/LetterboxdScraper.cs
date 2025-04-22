@@ -46,6 +46,7 @@ public class LetterboxdScraper : ILetterboxdScraper
                 // MovieId (still using the film-poster div)
                 var posterDiv = item
                     .SelectSingleNode(".//div[contains(@class,'film-poster')]");
+                Console.WriteLine(posterDiv.OuterHtml);
                 var link = posterDiv?
                     .GetAttributeValue("data-target-link", "")
                     .Split('/', StringSplitOptions.RemoveEmptyEntries)
@@ -64,12 +65,17 @@ public class LetterboxdScraper : ILetterboxdScraper
                     : 0;
 
                 // Poster URL from the img.image srcset (take the first URL)
-                var imgNode = item
-                    .SelectSingleNode(".//img[contains(@class,'image')]");
-                var posterUrl = imgNode?
-                    .GetAttributeValue("srcset", "")
-                    .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                    .FirstOrDefault();
+                var imgNode = item.SelectSingleNode(".//img[contains(@class,'image')]");
+                Console.WriteLine(imgNode.OuterHtml);
+                string posterUrl = null;
+                if (imgNode != null)
+                {
+                    var srcset = imgNode.GetAttributeValue("srcset", "");
+                    Console.WriteLine(string.IsNullOrEmpty(srcset) ? "srcset null" : $"srcset: {srcset}");
+                    posterUrl = srcset.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+                }
+
+                Console.WriteLine($"[Debug] movieId={movieId}, imgNodeFound={(imgNode!=null)}, posterUrl={posterUrl}");
 
                 // Upsert Movie (with PosterUrl)
                 var movie = await _db.Movies.FindAsync(movieId);
