@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+    <PropertyGroup>
+        <RootNamespace>MovieRecApp.Client</RootNamespace>
+        <AssemblyName>MovieRecApp.Client</AssemblyName>
+
+        <TargetFramework>net9.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="9.0.0" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="9.0.0" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.1">
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+          <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Services\" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <_ContentIncludedByDefault Remove="MovieRecApp.Server\appsettings.Development.json" />
+      <_ContentIncludedByDefault Remove="MovieRecApp.Server\appsettings.json" />
+      <_ContentIncludedByDefault Remove="MovieRecApp.Server\obj\MovieRecApp.Server.csproj.nuget.dgspec.json" />
+      <_ContentIncludedByDefault Remove="MovieRecApp.Server\obj\project.assets.json" />
+      <_ContentIncludedByDefault Remove="MovieRecApp.Server\obj\project.packagespec.json" />
+      <_ContentIncludedByDefault Remove="MovieRecApp.Server\Properties\launchSettings.json" />
+    </ItemGroup>
+
+</Project>
