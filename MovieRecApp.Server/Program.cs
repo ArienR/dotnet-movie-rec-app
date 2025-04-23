@@ -11,6 +11,9 @@ using MovieRecApp.Server.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Force user-secrets to be loaded even in non-Development environments (like testing)
+builder.Configuration.AddUserSecrets<Program>(optional: true);
+
 // Add services to the container.
 
 // Allows CORS for back-end to communication with front-end on port 5003
