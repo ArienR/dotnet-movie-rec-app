@@ -14,131 +14,143 @@ public class RecommendationService : IRecommendationService
     private readonly MLContext _mlContext;
     private ITransformer _model;
     private readonly ILetterboxdScraper _scraper;
-    private static readonly object _retrainLock = new();
-    private readonly HashSet<string> _scrapedThisScope = new();
+    private readonly ILogger<RecommendationService> _logger;
+    private readonly SemaphoreSlim _retrainLock = new(1, 1);
 
     public RecommendationService(
         ApplicationDbContext db,
-        ILetterboxdScraper scraper)
+        ILetterboxdScraper scraper,
+        ILogger<RecommendationService> logger)
     {
         _db        = db;
         _mlContext = new MLContext();
         _scraper   = scraper;
+        _logger    = logger;
 
+        // Try to load existing model
         if (File.Exists(MODEL_PATH))
         {
             try
             {
                 using var fs = File.OpenRead(MODEL_PATH);
                 _model = _mlContext.Model.Load(fs, out _);
+                _logger.LogInformation("Loaded existing model from {Path}", MODEL_PATH);
             }
-            catch
+            catch (Exception ex)
             {
-                _model = null; // bad file will be overwritten on retrain
+                _logger.LogWarning(ex, "Failed to load model; will retrain on demand");
+                _model = null;
             }
         }
     }
 
     public async Task RetrainModelAsync()
     {
-        var trainingData = await _db.Ratings
-            .Select(r => new RatingInput {
-                UserName = r.UserName,
-                MovieId  = r.MovieId,
-                Score    = r.Score
-            })
-            .ToListAsync();
-
-        var view = _mlContext.Data.LoadFromEnumerable(trainingData);
-
-        var pipeline = _mlContext.Transforms
-            .Conversion.MapValueToKey("userKey", nameof(RatingInput.UserName))
-            .Append(_mlContext.Transforms
-                .Conversion.MapValueToKey("movieKey", nameof(RatingInput.MovieId)))
-            .Append(_mlContext.Recommendation()
-                .Trainers.MatrixFactorization(new()
-                {
-                    MatrixColumnIndexColumnName = "userKey",
-                    MatrixRowIndexColumnName    = "movieKey",
-                    LabelColumnName             = "Label",
-                    NumberOfIterations          = 20,
-                    ApproximationRank           = 100
-                }));
-        
-        // Avoid concurrent writes to the model
-        lock (_retrainLock)
+        await _retrainLock.WaitAsync();
+        try
         {
-            var model = pipeline.Fit(view);
-            using var fs = File.Create(MODEL_PATH); // truncates existing
-            _mlContext.Model.Save(model, view.Schema, fs);
+            _logger.LogInformation("Retraining recommendation model...");
+            var trainingData = await _db.Ratings
+                .Select(r => new RatingInput {
+                    UserName = r.UserName,
+                    MovieId  = r.MovieId,
+                    Score    = r.Score
+                })
+                .ToListAsync();
+
+            var dataView = _mlContext.Data.LoadFromEnumerable(trainingData);
+
+            var pipeline = _mlContext.Transforms
+                .Conversion.MapValueToKey("userKey", nameof(RatingInput.UserName))
+                .Append(_mlContext.Transforms
+                    .Conversion.MapValueToKey("movieKey", nameof(RatingInput.MovieId)))
+                .Append(_mlContext.Recommendation()
+                    .Trainers.MatrixFactorization(new()
+                    {
+                        MatrixColumnIndexColumnName = "userKey",
+                        MatrixRowIndexColumnName    = "movieKey",
+                        LabelColumnName             = "Label",
+                        NumberOfIterations          = 20,
+                        ApproximationRank           = 100
+                    }));
+
+            var model = pipeline.Fit(dataView);
+            using var fs = File.Create(MODEL_PATH);
+            _mlContext.Model.Save(model, dataView.Schema, fs);
             _model = model;
+            _logger.LogInformation("Model retraining complete and saved to {Path}", MODEL_PATH);
+        }
+        finally
+        {
+            _retrainLock.Release();
         }
     }
-    
+
     public async Task<(Movie Movie, float Score)[]> GetTopRecommendationsWithMoviesAsync(
         string username, int count)
     {
-        // --- A) Incremental scrape & retrain if new ratings exist ---
-        var beforeCount = await _db.Ratings.CountAsync(r => r.UserName == username);
+        // 1) Scrape for new ratings
+        var before = await _db.Ratings.CountAsync(r => r.UserName == username);
         await _scraper.ScrapeRatingsForUserAsync(username);
-        var afterCount = await _db.Ratings.CountAsync(r => r.UserName == username);
+        var after  = await _db.Ratings.CountAsync(r => r.UserName == username);
 
-        if (_model == null || afterCount > beforeCount)
+        // 2) Retrain if necessary
+        if (_model == null || after > before)
         {
-            lock (_retrainLock)
-            {
-                // we can call synchronously inside lock since RetrainModelAsync
-                // only does CPU + IO and uses same lock internally
-                RetrainModelAsync().GetAwaiter().GetResult();
-            }
+            _logger.LogInformation(
+                "User {User} ratings changed (before={Before}, after={After}), retraining",
+                username, before, after);
+            await RetrainModelAsync();
         }
 
-        // In case retraining silently fails
         if (_model == null)
-            throw new InvalidOperationException(
-                "Model not trained. Call RetrainModelAsync first.");
+            throw new InvalidOperationException("Model not trained – call RetrainModelAsync first.");
 
-        // Build a prediction engine once
+        // 3) Build PredictionEngine
         var engine = _mlContext.Model
             .CreatePredictionEngine<RatingInput, RatingPrediction>(_model);
 
-        // Find all movies the user has rated
-        var seenMovieIds = await _db.Ratings
-            .Where(r => r.UserName == username)
-            .Select(r => r.MovieId)
-            .ToListAsync();
-
-        // Load all movies and filter out seen ones
+        // 4) Load seen and candidate movies
+        var seenIds = new HashSet<string>(
+            await _db.Ratings
+                     .Where(r => r.UserName == username)
+                     .Select(r => r.MovieId)
+                     .ToListAsync()
+        );
         var candidates = await _db.Movies
-            .Where(m => !seenMovieIds.Contains(m.MovieId))
+            .Where(m => !seenIds.Contains(m.MovieId))
             .ToListAsync();
 
-        // Score each and take the top N
+        // 5) Score and filter
         var scored = candidates
-            .Select(m => (
-                Movie: m,
-                Score: engine.Predict(
-                    new RatingInput { UserName = username, MovieId = m.MovieId }
-                ).PredictedScore
-            ))
-            .Where(x => !float.IsInfinity(x.Score) && !float.IsNaN(x.Score))
+            .Select(m =>
+            {
+                var pred = engine.Predict(new RatingInput {
+                    UserName = username,
+                    MovieId  = m.MovieId
+                });
+                return (Movie: m, Score: pred.PredictedScore);
+            })
+            .Where(x => !float.IsNaN(x.Score) && !float.IsInfinity(x.Score))
             .OrderByDescending(x => x.Score)
             .Take(count)
             .ToArray();
 
+        _logger.LogInformation(
+            "Returning top {Count} recommendations for {User}", scored.Length, username);
         return scored;
     }
 
-    public async Task<bool> HasRatingsAsync(string username)
-    {
-        return await _db.Ratings.AnyAsync(r => r.UserName == username);
-    }
+    public Task<bool> HasRatingsAsync(string username)
+        => _db.Ratings.AnyAsync(r => r.UserName == username);
 
     public async Task EnsureUserHasRatingsAsync(string username)
     {
         if (!await HasRatingsAsync(username))
+        {
+            _logger.LogWarning("User {User} has no ratings", username);
             throw new InvalidOperationException(
-                $"User '{username}' has no ratings. Call ScrapeRatingsForUserAsync first."
-            );
+                $"User '{username}' has no ratings. Please scrape first.");
+        }
     }
 }

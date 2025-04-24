@@ -10,22 +10,27 @@ using MovieRecApp.Server.Data;
 using MovieRecApp.Server.Interfaces;
 using MovieRecApp.Server.Models;
 
+
+namespace MovieRecApp.Server.Services;
+
 public class LetterboxdScraper : ILetterboxdScraper
 {
     private readonly HttpClient _http;
     private readonly ApplicationDbContext _db;
-    // limit concurrent HTTP requests to avoid overwhelming Letterboxd
-    private static readonly SemaphoreSlim _httpSemaphore = new(4);
+    private readonly ILogger<LetterboxdScraper> _logger;
+    private static readonly SemaphoreSlim HttpSemaphore = new(4);
 
-    public LetterboxdScraper(HttpClient http, ApplicationDbContext db)
+    public LetterboxdScraper(HttpClient http, ApplicationDbContext db, ILogger<LetterboxdScraper> logger)
     {
         _http = http;
         _db = db;
+        _logger = logger;
     }
 
     public async Task ScrapeRatingsForUserAsync(string username)
     {
-        // 1) Collect all (movieId, score) pairs by scraping the user's pages
+        _logger.LogInformation("Starting scrape for user {User}", username);
+        // Collect all (movieId, score) pairs by scraping the user's pages before adding it all to the db
         var ratingsList = new List<(string movieId, float score)>();
         var urlBase = $"https://letterboxd.com/{username}/films/by/date/";
 
@@ -36,7 +41,8 @@ public class LetterboxdScraper : ILetterboxdScraper
         int pageCount = pageNodes != null
             ? int.Parse(pageNodes.Last().InnerText.Trim().Replace(",", ""))
             : 1;
-
+        _logger.LogInformation("User {User} has {Pages} pages to scrape", username, pageCount);
+        
         for (int page = 1; page <= pageCount; page++)
         {
             var html = page == 1
@@ -61,14 +67,16 @@ public class LetterboxdScraper : ILetterboxdScraper
                     ? r
                     : 0f;
 
-                ratingsList.Add((movieId, score));
+                if (score > 0)
+                {
+                    ratingsList.Add((movieId, score));
+                }
             }
         }
 
         if (!ratingsList.Any())
             return;
 
-        // 2) Preload existing Movies and Ratings in a single batch each
         var movieIds = ratingsList.Select(r => r.movieId).Distinct().ToList();
         var existingMovies = await _db.Movies
             .AsNoTracking()
@@ -80,11 +88,10 @@ public class LetterboxdScraper : ILetterboxdScraper
             .Where(r => r.UserName == username && movieIds.Contains(r.MovieId))
             .ToDictionaryAsync(r => r.MovieId);
 
-        // 3) Disable change-tracking for speed
         _db.ChangeTracker.AutoDetectChangesEnabled = false;
         try
         {
-            // 4) Process each rating: upsert Movie, enrich JSON/poster if needed, upsert Rating
+            // Process each rating: upsert Movie, enrich JSON/poster if needed, upsert Rating
             var enrichTasks = new List<Task>();
             foreach (var (movieId, score) in ratingsList)
             {
@@ -127,10 +134,9 @@ public class LetterboxdScraper : ILetterboxdScraper
                 }
             }
 
-            // 5) Await all enrichment (with limited concurrency)
+            // Await all enrichment (with limited concurrency)
             await Task.WhenAll(enrichTasks);
 
-            // 6) Final save
             await _db.SaveChangesAsync();
         }
         finally
@@ -139,14 +145,19 @@ public class LetterboxdScraper : ILetterboxdScraper
         }
     }
 
-    private async Task EnrichFromLetterboxdJsonAsync(Movie movie)
+    internal async Task EnrichFromLetterboxdJsonAsync(Movie movie)
     {
-        await _httpSemaphore.WaitAsync();
+        _logger.LogDebug("Fetching JSON for movie {MovieId}", movie.MovieId);
+        await HttpSemaphore.WaitAsync();
         try
         {
             var jsonUrl = $"https://letterboxd.com/film/{movie.MovieId}/json/";
             using var res = await _http.GetAsync(jsonUrl);
-            if (!res.IsSuccessStatusCode) return;
+            if (!res.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("JSON fetch failed for {MovieId}: {Status}", movie.MovieId, res.StatusCode);
+                return;
+            }
 
             using var doc  = JsonDocument.Parse(await res.Content.ReadAsStringAsync());
             var     root = doc.RootElement;
@@ -158,26 +169,28 @@ public class LetterboxdScraper : ILetterboxdScraper
             }
 
             if (root.TryGetProperty("releaseYear", out var yr)
-                && yr.ValueKind == JsonValueKind.Number)
+                && yr.ValueKind == JsonValueKind.Number)    // ← guard here
             {
                 movie.Year = yr.GetInt32();
             }
 
             if (root.TryGetProperty("runTime", out var rt)
-                && rt.ValueKind == JsonValueKind.Number)
+                && rt.ValueKind == JsonValueKind.Number)    // ← and here
             {
                 movie.Runtime = rt.GetInt32();
             }
         }
         finally
         {
-            _httpSemaphore.Release();
+            HttpSemaphore.Release();
         }
     }
 
-    private async Task EnrichPosterFromAjaxAsync(Movie movie)
+
+    internal async Task EnrichPosterFromAjaxAsync(Movie movie)
     {
-        await _httpSemaphore.WaitAsync();
+        _logger.LogDebug("Fetching poster for movie {MovieId}", movie.MovieId);
+        await HttpSemaphore.WaitAsync();
         try
         {
             var ajaxUrl = $"https://letterboxd.com/ajax/poster/film/{movie.MovieId}/hero/230x345";
@@ -189,6 +202,7 @@ public class LetterboxdScraper : ILetterboxdScraper
                 .SelectSingleNode("//div[contains(@class,'film-poster')]//img");
             if (imgNode == null)
             {
+                _logger.LogWarning("No poster <img> found for {MovieId}", movie.MovieId);
                 movie.PosterUrl = string.Empty;
                 return;
             }
@@ -207,7 +221,7 @@ public class LetterboxdScraper : ILetterboxdScraper
         }
         finally
         {
-            _httpSemaphore.Release();
+            HttpSemaphore.Release();
         }
     }
 }
