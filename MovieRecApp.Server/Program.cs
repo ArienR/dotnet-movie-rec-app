@@ -90,6 +90,12 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 
+builder.Services
+    .AddHttpClient<ITmdbService, TmdbService>(c =>
+    {
+        c.BaseAddress = new Uri("https://api.themoviedb.org/3/");
+    });
+
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

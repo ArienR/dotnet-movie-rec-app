@@ -3,16 +3,19 @@ using Microsoft.EntityFrameworkCore;
 using MovieRecApp.Server.Data;
 using MovieRecApp.Server.Interfaces;
 using MovieRecApp.Server.Models;
+using MovieRecApp.Server.Services;
 
 public class LetterboxdScraper : ILetterboxdScraper
 {
     private readonly HttpClient _http;
     private readonly ApplicationDbContext _db;
+    private readonly ITmdbService _tmdbService;
 
-    public LetterboxdScraper(HttpClient http, ApplicationDbContext db)
+    public LetterboxdScraper(HttpClient http, ApplicationDbContext db, ITmdbService tmdb)
     {
         _http = http;
         _db = db;
+        _tmdbService = tmdb;
     }
 
     public async Task ScrapeRatingsForUserAsync(string username)
@@ -46,7 +49,6 @@ public class LetterboxdScraper : ILetterboxdScraper
                 // MovieId (still using the film-poster div)
                 var posterDiv = item
                     .SelectSingleNode(".//div[contains(@class,'film-poster')]");
-                Console.WriteLine(posterDiv.OuterHtml);
                 var link = posterDiv?
                     .GetAttributeValue("data-target-link", "")
                     .Split('/', StringSplitOptions.RemoveEmptyEntries)
@@ -64,34 +66,19 @@ public class LetterboxdScraper : ILetterboxdScraper
                     ? r 
                     : 0;
 
-                // Poster URL from the img.image srcset (take the first URL)
-                var imgNode = item.SelectSingleNode(".//img[contains(@class,'image')]");
-                Console.WriteLine(imgNode.OuterHtml);
-                string posterUrl = null;
-                if (imgNode != null)
-                {
-                    var srcset = imgNode.GetAttributeValue("srcset", "");
-                    Console.WriteLine(string.IsNullOrEmpty(srcset) ? "srcset null" : $"srcset: {srcset}");
-                    posterUrl = srcset.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
-                }
-
-                Console.WriteLine($"[Debug] movieId={movieId}, imgNodeFound={(imgNode!=null)}, posterUrl={posterUrl}");
-
-                // Upsert Movie (with PosterUrl)
+                // Upsert or retrieve the Movie skeleton
                 var movie = await _db.Movies.FindAsync(movieId);
                 if (movie == null)
                 {
-                    _db.Movies.Add(new Movie
+                    movie = new Movie
                     {
-                        MovieId   = movieId,
-                        Title     = movieId,
-                        PosterUrl = posterUrl
-                    });
+                        MovieId = movieId,
+                        Title   = movieId
+                    };
+                    _db.Movies.Add(movie);
                 }
-                else if (!string.IsNullOrEmpty(posterUrl))
-                {
-                    movie.PosterUrl = posterUrl;
-                }
+                
+                await _tmdbService.EnrichMovieAsync(movie);
 
                 // Upsert Rating
                 var existing = await _db.Ratings.FindAsync(username, movieId);

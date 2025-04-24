@@ -221,6 +221,10 @@ namespace MovieRecApp.Server.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("TmdbId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.HasKey("MovieId");
 
                     b.ToTable("Movies");
