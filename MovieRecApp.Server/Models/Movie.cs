@@ -11,7 +11,9 @@ public class Movie
     [Required]
     public string Title { get; set; }
 
-    public string TmdbId    { get; set; }
+    public int Year    { get; set; }
+    public int Runtime { get; set; }
+
     public string? PosterUrl { get; set; }
 
     public ICollection<Rating> Ratings { get; set; }

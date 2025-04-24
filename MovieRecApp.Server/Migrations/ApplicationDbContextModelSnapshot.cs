@@ -217,13 +217,15 @@ namespace MovieRecApp.Server.Migrations
                     b.Property<string>("PosterUrl")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("Runtime")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("TmdbId")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
+                    b.Property<int>("Year")
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("MovieId");
 
