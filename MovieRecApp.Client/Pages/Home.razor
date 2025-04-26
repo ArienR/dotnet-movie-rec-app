@@ -13,11 +13,14 @@
     </div>
 
     <input type="text" placeholder="Your Letterboxd username..." class="main-input text-center px-4 py-2 rounded-pill">
-
-    <div class="login-buttons-container mt-4 flex-row @(_isLoggedIn ? "hidden" : "")">
-        <button type="button" class="login-button text-center px-4 py-2 rounded-pill" @onclick="NavigateToLogin">Login</button>
-        <button type="button" class="login-button text-center px-4 py-2 rounded-pill" @onclick="NavigateToRegister">Register</button>
-    </div>
+    
+    @if (!_isLoggedIn)
+    {
+        <div class="login-buttons-container mt-4 flex-row">
+            <button type="button" class="login-button text-center px-4 py-2 rounded-pill" @onclick="NavigateToLogin">Login</button>
+            <button type="button" class="login-button text-center px-4 py-2 rounded-pill" @onclick="NavigateToRegister">Register</button>
+        </div>
+    }
 
     <div class="welcome-wrapper mt-5">
         @if (_showWelcome)
@@ -31,39 +34,46 @@
 @code {
     private readonly string[] _welcomeTexts = new[] { "Enter your Letterboxd username...", "Then flickpick." };
     private bool _showWelcome = false;
-    private string? _welcomeMessage;
+    private string? _welcomeMessage = "";
     private bool _fadeOutWelcome = false;
     private bool _isLoggedIn;
     
     protected override async Task OnInitializedAsync()
     {
-        await DisplayWelcomeMessage();
-        
         var token = await LocalStorage.GetItemAsync<string>("authToken");
         _isLoggedIn = !string.IsNullOrWhiteSpace(token);
+        
+        await DisplayWelcomeMessage();
     }
     
     private async Task DisplayWelcomeMessage()
     {
-        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var uri   = Navigation.ToAbsoluteUri(Navigation.Uri);
         var query = QueryHelpers.ParseQuery(uri.Query);
-        if (query.TryGetValue("message", out var msgType) &&
-            query.TryGetValue("user", out var user))
+
+        if (query.TryGetValue("message", out var msg))
         {
-            if (msgType == "WelcomeUser")
+            if (msg == "WelcomeUser" && query.TryGetValue("user", out var user))
             {
                 _welcomeMessage = $"Login Successful. Welcome, {user}.";
-                _showWelcome = true;
-
-                await Task.Delay(5000);
-                _fadeOutWelcome = true;
-                StateHasChanged();
-
-                await Task.Delay(1000);
-                _showWelcome = false;
-                _fadeOutWelcome = false;
-                StateHasChanged();
             }
+            else if (msg == "LoggedOut")
+            {
+                _welcomeMessage = "You’ve been logged out.";
+            }
+            else
+            {
+                return;
+            }
+
+            _showWelcome = true;
+            await Task.Delay(5000);
+            _fadeOutWelcome = true;
+            StateHasChanged();
+            await Task.Delay(1000);
+            _showWelcome = false;
+            _fadeOutWelcome = false;
+            StateHasChanged();
         }
     }
     
