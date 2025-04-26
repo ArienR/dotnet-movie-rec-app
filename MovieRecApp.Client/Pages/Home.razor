@@ -1,24 +1,74 @@
 ﻿@page "/home"
 @using Microsoft.AspNetCore.WebUtilities
+@using MovieRecApp.Server.Data
 @inject NavigationManager Navigation
 @inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@inject HttpClient Http
 
 <PageTitle>Home</PageTitle>
 
 <div class="flex flex-col justify-center items-center text-center min-h-screen">
-    <div class="home-typewriter-wrapper">
+    <div class="home-typewriter-wrapper flex-row">
         <h1 id="home-typewriter">
             <Typewriter Texts="_welcomeTexts" TypingSpeed="75" BackSpeed="35" PauseBetween="500"/>
         </h1>
     </div>
 
-    <input type="text" placeholder="Your Letterboxd username..." class="main-input text-center px-4 py-2 rounded-pill">
+    <div class="recommend-input-wrapper d-flex justify-content-center align-items-center" style="max-width: 600px; margin: 0 auto;">
+        <input
+            class="form-control login-input main-input text-center px-4 py-2 rounded-pill flex-grow-1 me-2"
+            placeholder="Your Letterboxd username..."
+            @bind="username" />
+
+        <button
+            type="button"
+            class="login-button text-center px-4 py-2 rounded-pill flex-shrink-0"
+            @onclick="GetRecommendations"
+            disabled="@string.IsNullOrWhiteSpace(username)">
+            Go
+        </button>
+    </div>
     
     @if (!_isLoggedIn)
     {
         <div class="login-buttons-container mt-4 flex-row">
             <button type="button" class="login-button text-center px-4 py-2 rounded-pill" @onclick="NavigateToLogin">Login</button>
             <button type="button" class="login-button text-center px-4 py-2 rounded-pill" @onclick="NavigateToRegister">Register</button>
+        </div>
+    }
+
+
+    @if (errorMessage != null)
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+    else if (recommendations is null)
+    {
+        <p>Enter a username above and click “Get Recommendations.”</p>
+    }
+    else if (recommendations.Length == 0)
+    {
+        <p>No recommendations found.</p>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var rec in recommendations)
+            {
+                <div class="col-md-3 mb-4">
+                    <div class="card shadow-sm">
+                        <img src="@rec.PosterUrl"
+                             class="card-img-top"
+                             alt="@rec.Title" />
+                        <div class="card-body">
+                            <h5 class="card-title">@rec.Title</h5>
+                            <p class="card-text">
+                                Score: @rec.PredictedScore.ToString("F2")
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            }
         </div>
     }
 
@@ -39,6 +89,9 @@
     private string? _welcomeMessage = "";
     private bool _fadeOutWelcome = false;
     private bool _isLoggedIn;
+    private string username;
+    private RecommendationDto[] recommendations;
+    private string errorMessage;
     
     protected override async Task OnParametersSetAsync()
     {
@@ -82,4 +135,21 @@
     private void NavigateToLogin() =>
         Navigation.NavigateTo("/login");
 
+    private async Task GetRecommendations()
+    {
+        errorMessage       = null;
+        recommendations    = null;
+
+        try
+        {
+            // adjust count if you want to make it user-configurable
+            recommendations = await Http.GetFromJsonAsync<RecommendationDto[]>(
+                $"api/recommendation/{Uri.EscapeDataString(username)}?count=30");
+        }
+        catch (HttpRequestException hrx)
+        {
+            // e.g. if the server returned 400 BadRequest for no ratings
+            errorMessage = hrx.Message;
+        }
+    }
 }
