@@ -1,19 +1,73 @@
-﻿@* <div class="top-row ps-3 navbar navbar-dark"> *@
-@*     <a class="navbar-brand" href="">flickpick</a> *@
-@* </div> *@
-<nav class="nav flex-column">
-    <div class="nav-item px-3">
+﻿@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@inject NavigationManager Navigation
+
+<nav class="d-flex flex-column vh-100">
+    <div class="flex-grow-0 nav-item px-3">
         <NavLink class="p-4" href="home" Match="NavLinkMatch.All">
             <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span>
             <span class="nav-text">Home</span>
-        </NavLink>
-        <NavLink class="p-4 mt-2" href="login" Match="NavLinkMatch.All">
-            <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span>
-            <span class="nav-text">Login</span>
         </NavLink>
         <NavLink class="p-4 mt-2" href="profile" Match="NavLinkMatch.All">
             <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span>
             <span class="nav-text">Profile</span>
         </NavLink>
     </div>
+
+    <div class="flex-grow-1"></div>
+    
+    @if (_isLoggedIn)
+    {
+        <div class="flex-grow-0 nav-item px-3">
+            <button class="p-4 mt-2 nav-link login-button rounded text-start"
+                    @onclick="Logout">
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span>
+                <span class="nav-text">Log out</span>
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="flex-grow-0 nav-item px-3">
+            <NavLink class="p-4 mt-2" href="login" Match="NavLinkMatch.All">
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span>
+                <span class="nav-text">Login</span>
+            </NavLink>
+        </div>
+    }
 </nav>
+
+@code {
+    private bool _isLoggedIn;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // initial check
+        await CheckLoginState();
+
+        // re-check on every navigation
+        Navigation.LocationChanged += async (_, __) =>
+        {
+            await CheckLoginState();
+            StateHasChanged();
+        };
+    }
+    
+    private async Task CheckLoginState()
+    {
+        var token = await LocalStorage.GetItemAsync<string>("authToken");
+        _isLoggedIn = !string.IsNullOrWhiteSpace(token);
+    }
+
+    private async Task Logout()
+    {
+        await LocalStorage.RemoveItemAsync("authToken");
+        
+        // 2) update your flag and 3) re-render
+        _isLoggedIn = false;
+        StateHasChanged();
+
+        // 4) navigate with your message
+        Navigation.NavigateTo("/home?message=LoggedOut", forceLoad: true);
+    }
+}
+
