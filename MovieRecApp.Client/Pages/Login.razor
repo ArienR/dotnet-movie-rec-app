@@ -153,7 +153,7 @@
                 if (result != null)
                 {
                     await LocalStorage.SetItemAsync("authToken", result.Token);
-                    Navigation.NavigateTo("/home");
+                    Navigation.NavigateTo($"/home?message=WelcomeUser&user={_loginRequest.EmailOrUsername}");
                 }
             }
             else

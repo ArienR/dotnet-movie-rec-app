@@ -284,3 +284,7 @@ code {
     opacity: 0;
     /* You might also want to adjust transform here if needed */
 }
+
+.home-typewriter-wrapper {
+    width: 900px;
+}
