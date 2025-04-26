@@ -157,6 +157,14 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
+if (args.Contains("evaluate"))
+{
+    using var scope = app.Services.CreateScope();
+    var iface = scope.ServiceProvider.GetRequiredService<IRecommendationService>();
+    var rec   = (RecommendationService)iface;
+    await rec.EvaluateHoldoutAsync(testFraction: 0.2f);
+    return;
+}
 
 app.Run();
 

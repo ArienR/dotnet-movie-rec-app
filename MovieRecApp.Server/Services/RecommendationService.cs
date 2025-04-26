@@ -49,8 +49,10 @@ public class RecommendationService : IRecommendationService
         await _retrainLock.WaitAsync();
         try
         {
-            _logger.LogInformation("Retraining recommendation model...");
-            var trainingData = await _db.Ratings
+            _logger.LogInformation("Retraining recommendation model with example‐weighting…");
+
+            // 1) Fetch all ratings
+            var allRatings = await _db.Ratings
                 .Select(r => new RatingInput {
                     UserName = r.UserName,
                     MovieId  = r.MovieId,
@@ -58,86 +60,161 @@ public class RecommendationService : IRecommendationService
                 })
                 .ToListAsync();
 
-            var dataView = _mlContext.Data.LoadFromEnumerable(trainingData);
+            // 2) Only keep movies with ≥5 ratings
+            var popularMovieIds = allRatings
+                .GroupBy(r => r.MovieId)
+                .Where(g => g.Count() >= 5)
+                .Select(g => g.Key)
+                .ToHashSet();
+            var filtered = allRatings
+                .Where(r => popularMovieIds.Contains(r.MovieId))
+                .ToList();
 
+            // 3) “Weight” extremes by duplicating those records
+            var weighted = new List<RatingInput>();
+            foreach (var r in filtered)
+            {
+                weighted.Add(r);
+                if (r.Score <= 2 || r.Score >= 9)
+                    weighted.Add(r);    // duplicate once for double weight
+            }
+
+            // 4) Train MF on the weighted data
+            var dataView = _mlContext.Data.LoadFromEnumerable(weighted);
             var pipeline = _mlContext.Transforms
                 .Conversion.MapValueToKey("userKey", nameof(RatingInput.UserName))
                 .Append(_mlContext.Transforms
                     .Conversion.MapValueToKey("movieKey", nameof(RatingInput.MovieId)))
                 .Append(_mlContext.Recommendation()
-                    .Trainers.MatrixFactorization(new()
+                    .Trainers.MatrixFactorization(new MatrixFactorizationTrainer.Options
                     {
                         MatrixColumnIndexColumnName = "userKey",
                         MatrixRowIndexColumnName    = "movieKey",
                         LabelColumnName             = "Label",
-                        NumberOfIterations          = 20,
-                        ApproximationRank           = 100
+                        NumberOfIterations          = 30,
+                        ApproximationRank           = 150,
+                        Lambda                      = 0.1
                     }));
 
-            var model = pipeline.Fit(dataView);
-            using var fs = File.Create(MODEL_PATH);
-            _mlContext.Model.Save(model, dataView.Schema, fs);
-            _model = model;
-            _logger.LogInformation("Model retraining complete and saved to {Path}", MODEL_PATH);
+            _model = pipeline.Fit(dataView);
+
+            // 5) Persist
+            await using var fs = File.Create(MODEL_PATH);
+            _mlContext.Model.Save(_model, dataView.Schema, fs);
+            _logger.LogInformation("Weighted model retrained and saved to {Path}", MODEL_PATH);
         }
         finally
         {
             _retrainLock.Release();
         }
     }
+    
+    public async Task EvaluateHoldoutAsync(float testFraction = 0.2f)
+    {
+        // 1) Fetch & filter
+        var allRatings = await _db.Ratings
+            .Select(r => new RatingInput {
+                UserName = r.UserName,
+                MovieId  = r.MovieId,
+                Score    = r.Score
+            })
+            .ToListAsync();
+        var popularMovieIds = allRatings
+            .GroupBy(r => r.MovieId)
+            .Where(g => g.Count() >= 5)
+            .Select(g => g.Key)
+            .ToHashSet();
+        var filtered = allRatings
+            .Where(r => popularMovieIds.Contains(r.MovieId))
+            .ToList();
+
+        // 2) Apply the same weighting‐by‐duplication
+        var weighted = new List<RatingInput>();
+        foreach (var r in filtered)
+        {
+            weighted.Add(r);
+            if (r.Score <= 2 || r.Score >= 9)
+                weighted.Add(r);
+        }
+
+        // 3) Split train/test
+        var dataView = _mlContext.Data.LoadFromEnumerable(weighted);
+        var split    = _mlContext.Data.TrainTestSplit(dataView, testFraction: testFraction);
+        var trainSet = split.TrainSet;
+        var testSet  = split.TestSet;
+
+        // 4) Train & evaluate
+        var pipeline = _mlContext.Transforms
+            .Conversion.MapValueToKey("userKey", nameof(RatingInput.UserName))
+            .Append(_mlContext.Transforms
+                .Conversion.MapValueToKey("movieKey", nameof(RatingInput.MovieId)))
+            .Append(_mlContext.Recommendation()
+                .Trainers.MatrixFactorization(new MatrixFactorizationTrainer.Options
+                {
+                    MatrixColumnIndexColumnName = "userKey",
+                    MatrixRowIndexColumnName    = "movieKey",
+                    LabelColumnName             = "Label",
+                    NumberOfIterations          = 30,
+                    ApproximationRank           = 150,
+                    Lambda                      = 0.1
+                }));
+        var model   = pipeline.Fit(trainSet);
+        var preds   = model.Transform(testSet);
+        var metrics = _mlContext.Regression.Evaluate(preds, "Label", "Score");
+
+        Console.WriteLine($"=== Hold-out (weighted+filtered) {1-testFraction:P0}/{testFraction:P0} ===");
+        Console.WriteLine($"  RMSE = {metrics.RootMeanSquaredError:F3}");
+        Console.WriteLine($"  MAE  = {metrics.MeanAbsoluteError:F3}");
+        Console.WriteLine($"  R²   = {metrics.RSquared:F3}");
+    }
 
     public async Task<(Movie Movie, float Score)[]> GetTopRecommendationsWithMoviesAsync(
         string username, int count)
     {
-        // 1) Scrape for new ratings
+        // A) Scrape & retrain if needed
         var before = await _db.Ratings.CountAsync(r => r.UserName == username);
         await _scraper.ScrapeRatingsForUserAsync(username);
         var after  = await _db.Ratings.CountAsync(r => r.UserName == username);
-
-        // 2) Retrain if necessary
         if (_model == null || after > before)
-        {
-            _logger.LogInformation(
-                "User {User} ratings changed (before={Before}, after={After}), retraining",
-                username, before, after);
             await RetrainModelAsync();
-        }
 
-        if (_model == null)
-            throw new InvalidOperationException("Model not trained – call RetrainModelAsync first.");
+        // B) Build popularity counts
+        var movieCounts = await _db.Ratings
+            .GroupBy(r => r.MovieId)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Count);
 
-        // 3) Build PredictionEngine
-        var engine = _mlContext.Model
-            .CreatePredictionEngine<RatingInput, RatingPrediction>(_model);
-
-        // 4) Load seen and candidate movies
-        var seenIds = new HashSet<string>(
-            await _db.Ratings
-                     .Where(r => r.UserName == username)
-                     .Select(r => r.MovieId)
-                     .ToListAsync()
-        );
+        // C) Get unseen candidates
+        var seen = await _db.Ratings
+            .Where(r => r.UserName == username)
+            .Select(r => r.MovieId)
+            .ToHashSetAsync();
         var candidates = await _db.Movies
-            .Where(m => !seenIds.Contains(m.MovieId))
+            .Where(m => !seen.Contains(m.MovieId))
             .ToListAsync();
 
-        // 5) Score and filter
+        // D) Score + pop-boost
+        var engine = _mlContext.Model
+            .CreatePredictionEngine<RatingInput, RatingPrediction>(_model);
+        const float popWeight = 0.05f;
         var scored = candidates
             .Select(m =>
             {
-                var pred = engine.Predict(new RatingInput {
+                var baseScore = engine.Predict(new RatingInput {
                     UserName = username,
                     MovieId  = m.MovieId
-                });
-                return (Movie: m, Score: pred.PredictedScore);
+                }).PredictedScore;
+
+                var cnt = movieCounts.GetValueOrDefault(m.MovieId, 0);
+                var boost = popWeight * (float)Math.Log(cnt + 1);
+                return (Movie: m, Score: baseScore + boost);
             })
-            .Where(x => !float.IsNaN(x.Score) && !float.IsInfinity(x.Score))
+            .Where(x => !float.IsNaN(x.Score))
             .OrderByDescending(x => x.Score)
             .Take(count)
             .ToArray();
 
-        _logger.LogInformation(
-            "Returning top {Count} recommendations for {User}", scored.Length, username);
+        _logger.LogInformation("Returning top {Count} recommendations for {User}", scored.Length, username);
         return scored;
     }
 
